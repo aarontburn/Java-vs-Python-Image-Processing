@@ -12,17 +12,17 @@ def handle_request(event, context = None):
     Pass in a Base64 encoded image in a dictionary under key 'image_file'. Will return a
         dictionary following one of these schemas:
         
-            <key>:      <type>              -> <description>
+            <key>: <type> -> <description>
         Successful Response {
-            'region':   string              -> I think when this is ran within lambda, this should be populated. Otherwise, return "NO_REGION_DATA".
-            'height':   integer             -> The height (in px i think) of the image.
-            'width':    integer             -> The width (in px i think) of the image.
-            'mode':     string              -> The mode of the image. See https://pillow.readthedocs.io/en/stable/handbook/concepts.html
-            'has_transparency_data: boolean -> True if the image has transparency data, False otherwise.
+            'region': str -> I think when this is ran within lambda, this should be populated. Otherwise, return "NO_REGION_DATA".
+            'height': int -> The height (in px i think) of the image.
+            'width': str -> The width (in px i think) of the image.
+            'mode': str -> The mode of the image. See https://pillow.readthedocs.io/en/stable/handbook/concepts.html
+            'has_transparency_data: bool -> True if the image has transparency data, False otherwise.
         }
         
         Error Response {
-            'error':    string              -> The error converted to a string form.
+            'error': str -> The error converted to a string form.
         }
     
     :param event: A dictionary containing at LEAST a key-value pair where the key is 'image_file' and the value is a Base64 encoded image

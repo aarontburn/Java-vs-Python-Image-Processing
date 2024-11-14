@@ -15,6 +15,25 @@ import java.util.HashMap;
 
 public class ImageDetails implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
 
+    /***
+     *  Pass in a Base64 encoded image in a HashMap under key 'image_file'.
+     *  Will return a HashMap following one of these schemas:
+     *          <key>: <type> -> <description>
+     *      Successful Response {
+     *          'region': String -> I think when this is ran within lambda, this should be populated. Otherwise, return "NO_REGION_DATA".
+     *          'height': int -> The height (in px i think) of the image.
+     *          'width': int -> The width (in px i think) of the image.
+     *          'mode': String -> The mode of the image.
+     *          'has_transparency_data: boolean -> True if the image has transparency data, False otherwise.
+     *      }
+     *      Error Response {
+     *          'error': String -> The error converted to a string form.
+     *      }
+     *
+     *  @param request  A HashMap containing request data.
+     *  @param context  Some AWS stuff.
+     *  @return
+     */
     public HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
 
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
@@ -22,19 +41,13 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
 
         final String encodedImage = (String) request.get("image_file");
 
-        final byte[] imageByte = Base64.getDecoder().decode(encodedImage);
-
-        final ByteArrayInputStream bis = new ByteArrayInputStream(imageByte);
-
         try {
-            final BufferedImage image = ImageIO.read(bis);
-
-            final ColorSpace colorSpace = image.getColorModel().getColorSpace();
+            final BufferedImage image = ImageIO.read(new ByteArrayInputStream(Base64.getDecoder().decode(encodedImage)));
 
             inspector.addAttribute("region", System.getenv().getOrDefault("AWS_REGION", "NO_REGION_DATA"));
             inspector.addAttribute("width", image.getWidth());
             inspector.addAttribute("height", image.getHeight());
-            inspector.addAttribute("mode", getColorType(colorSpace.getType()));
+            inspector.addAttribute("mode", getColorType(image.getColorModel().getColorSpace().getType()));
             inspector.addAttribute("has_transparency_data", image.getColorModel().hasAlpha() ? 1 : 0);
 
         } catch (final Exception e) {
@@ -51,7 +64,7 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
             case ColorSpace.TYPE_RGB:
                 return "RGB";
             case ColorSpace.TYPE_GRAY:
-                return "Grayscale";
+                return "L";
             case ColorSpace.TYPE_CMYK:
                 return "CMYK";
             case ColorSpace.TYPE_YCbCr:
@@ -63,7 +76,7 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
             case ColorSpace.TYPE_HSV:
                 return "HSV";
             case ColorSpace.TYPE_Lab:
-                return "Lab";
+                return "LAB";
             case ColorSpace.TYPE_Luv:
                 return "Luv";
             case ColorSpace.TYPE_XYZ:
