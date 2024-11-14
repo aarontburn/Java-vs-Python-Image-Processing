@@ -14,11 +14,10 @@ def handle_request(event, context = None):
         
             <key>:      <type>              -> <description>
         Successful Response {
-            'region':   string | ''         -> I think when this is ran within lambda, this should be populated. Otherwise, return an empty string.
+            'region':   string              -> I think when this is ran within lambda, this should be populated. Otherwise, return "NO_REGION_DATA".
             'height':   integer             -> The height (in px i think) of the image.
             'width':    integer             -> The width (in px i think) of the image.
             'mode':     string              -> The mode of the image. See https://pillow.readthedocs.io/en/stable/handbook/concepts.html
-            'dpi':      (integer, integer)  -> The DPI of the image, or (-1, -1) if its unspecified. Honestly have no idea how this works.
             'has_transparency_data: boolean -> True if the image has transparency data, False otherwise.
         }
         
@@ -33,12 +32,11 @@ def handle_request(event, context = None):
     try:
         with Image.open(io.BytesIO(base64.decodebytes(event['image_file']))) as img:
             return {
-                'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else '',
+                'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
                 'height': img.height,
                 'width': img.width,
                 'mode': img.mode,
-                'dpi': img.info.get("dpi", (-1, -1)),
-                'has_transparency_data': img.has_transparency_data  # This could be a 0 or 1 for cross compat i think
+                'has_transparency_data': 1 if img.has_transparency_data else 0
             }
     except Exception as e:
         return {'error': str(e)}
@@ -50,7 +48,7 @@ def handle_request(event, context = None):
 # Some testing code.
 if __name__ == '__main__':
     print("\nPWD: " + os.getcwd())
-    image_name = 'github-logo.png'
+    image_name = 'sample image.jpg'
     with open('../sample images/' + image_name, 'rb') as f:
         event_obj = {'image_file': base64.b64encode(f.read())}
         print(handle_request(event_obj))
