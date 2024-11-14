@@ -16,6 +16,7 @@ import java.util.HashMap;
 public class ImageDetails implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
 
     /***
+     *  Function #1: Image upload and validation
      *  Pass in a Base64 encoded image in a HashMap under key 'image_file'.
      *  Will return a HashMap following one of these schemas:
      *          <key>: <type> -> <description>
@@ -30,9 +31,9 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
      *          'error': String -> The error converted to a string form.
      *      }
      *
-     *  @param request  A HashMap containing request data.
-     *  @param context  Some AWS stuff.
-     *  @return
+     *  @param request  A HashMap containing request data (must have the key, 'image_file', with value as the image in base64 encoding.).
+     *  @param context
+     *  @return A HashMap containing the response data.
      */
     public HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
 

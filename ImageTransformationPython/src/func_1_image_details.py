@@ -25,9 +25,9 @@ def handle_request(event, context = None):
             'error': str -> The error converted to a string form.
         }
     
-    :param event: A dictionary containing at LEAST a key-value pair where the key is 'image_file' and the value is a Base64 encoded image
-    :param context: AWS Lambda stuff. No clue what this is. For testing purposes, I've made this 'None' by default.
-    :returns: A response body containing information about the image, or an error object otherwise.
+    :param event:   A dictionary containing request data (must have the key, 'image_file', with value as the image in base64 encoding.).
+    :param context: 
+    :returns:       A dictionary containing the response data.
     """
     try:
         with Image.open(io.BytesIO(base64.decodebytes(event['image_file']))) as img:
