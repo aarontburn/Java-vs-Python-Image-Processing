@@ -9,7 +9,7 @@ def handle_request(event, context):
     try:
         with Image.open(io.BytesIO(base64.decodebytes(event['image_file']))) as img:
             return {
-                'region': os.environ['AWS_REGION'],
+                'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else '',
                 'height': img.height,
                 'width': img.width,
                 'mode': img.mode,
@@ -24,7 +24,8 @@ def handle_request(event, context):
 
 
 if __name__ == '__main__':
-    image_path = 'sample image 2.jpeg'
+    print("\nPWD: " + os.getcwd())
+    image_path = './src/' + 'sample image 2.jpeg'
     with open(image_path, 'rb') as f:
         event_obj = {'image_file': base64.b64encode(f.read())}
         print(handle_request(event_obj, None))
