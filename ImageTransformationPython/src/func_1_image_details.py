@@ -29,7 +29,6 @@ def handle_request(event, context = None):
     :param event: A dictionary containing at LEAST a key-value pair where the key is 'image_file' and the value is a Base64 encoded image
     :param context: AWS Lambda stuff. No clue what this is. For testing purposes, I've made this 'None' by default.
     :returns: A response body containing information about the image, or an error object otherwise.
-    
     """
     try:
         with Image.open(io.BytesIO(base64.decodebytes(event['image_file']))) as img:
