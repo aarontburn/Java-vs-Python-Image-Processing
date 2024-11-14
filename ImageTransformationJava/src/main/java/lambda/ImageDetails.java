@@ -24,7 +24,7 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
      *          'height': int -> The height (in px i think) of the image.
      *          'width': int -> The width (in px i think) of the image.
      *          'mode': String -> The mode of the image.
-     *          'has_transparency_data: boolean -> True if the image has transparency data, False otherwise.
+     *          'has_transparency_data: int -> 1 if the image has transparency data, 0 otherwise.
      *      }
      *      Error Response {
      *          'error': String -> The error converted to a string form.
