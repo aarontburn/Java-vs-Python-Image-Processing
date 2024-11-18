@@ -11,6 +11,10 @@ ERROR_KEY: str = 'error'
 def handle_request(event, context = None):
     """
     Function #1: Image upload and validation
+
+    Request Body {
+        'image_file': The image encoded in base64.
+    }
     
     Pass in a Base64 encoded image in a dictionary under key 'image_file'. Will return a
         dictionary following one of these schemas:
