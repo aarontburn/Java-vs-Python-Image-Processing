@@ -80,9 +80,22 @@ def handle_request(event, context = None):
 # Some testing code.
 if __name__ == '__main__':
     print("\nPWD: " + os.getcwd())
-    image_name = 'sample image.jpg'
-    with open('./sample images/' + image_name, 'rb') as f:
-        event_obj = {IMAGE_FILE_KEY: base64.b64encode(f.read()), BRIGHTNESS_KEY: 190}
+    image_name = 'sample image 2.jpeg'
 
-        with open('test output.jpg', "wb") as w:
-            w.write(base64.b64decode(handle_request(event_obj)[IMAGE_FILE_KEY]))
+    for i in range(102): # 102 since 101 will fail
+        with open('./sample images/' + image_name, 'rb') as f:
+            event_obj = {IMAGE_FILE_KEY: base64.b64encode(f.read()), BRIGHTNESS_KEY: i}
+            with open('test output.jpg', "wb") as w:
+                try:
+                    w.write(base64.b64decode(handle_request(event_obj)[IMAGE_FILE_KEY]))
+                    print("Success", i)
+                except Exception as e:
+                    print("\tError", i)
+
+
+    # with open('./sample images/' + image_name, 'rb') as f:
+
+    #     event_obj = {IMAGE_FILE_KEY: base64.b64encode(f.read()), BRIGHTNESS_KEY: 1}
+
+    #     with open('test output.jpg', "wb") as w:
+    #         w.write(base64.b64decode(handle_request(event_obj)[IMAGE_FILE_KEY]))
