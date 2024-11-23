@@ -88,27 +88,36 @@ public class ImageGrayscale implements RequestHandler<HashMap<String, Object>, H
     }
 
     public static void main(String[] args) {
-        final String testImageName = "sample_image.jpg";
+        final String testImageName = "sample image 2.jpeg";
 
         System.out.println("PWD: " + System.getProperty("user.dir") + "\n");
         final HashMap<String, Object> req = new HashMap<>();
 
-        final File file = new File("../../sample images/" + testImageName);
-        //System.out.println("Absolute path: " + file.getAbsolutePath());
+        final File file = new File("./sample images/" + testImageName);
+        System.out.println("Absolute path: " + file.getAbsolutePath());
 
+        if (!file.exists() || file.length() == 0) {
+            System.err.println("Error: File does not exist or is empty at path: " + file.getAbsolutePath());
+            return;
+        }
 
         try (FileInputStream fileInputStreamReader = new FileInputStream(file)) {
             final byte[] bytes = new byte[(int) file.length()];
             fileInputStreamReader.read(bytes);
 
             // Encode the image to Base64
-            req.put("image_file", Base64.getEncoder().encodeToString(bytes));
+            String encodedImage = Base64.getEncoder().encodeToString(bytes);
+            System.out.println("Encoded Image (truncated): " + encodedImage.substring(0, 100) + "...");
+
+            req.put("image_file", encodedImage);
 
             // Call the grayscale handler and print the result
-            System.out.println(new ImageGrayscale().handleRequest(req, null).toString());
+            HashMap<String, Object> response = new ImageGrayscale().handleRequest(req, null);
+            System.out.println("Response: " + response);
 
         } catch (final Exception e) {
             e.printStackTrace();
         }
     }
+
 }
