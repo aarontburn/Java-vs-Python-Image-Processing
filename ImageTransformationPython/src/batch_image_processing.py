@@ -40,7 +40,7 @@ def func_1_image_details(event, context = None):
 
 
     try:
-        with Image.open(io.BytesIO(base64.decodebytes(event[IMAGE_FILE_KEY]))) as img:
+        with Image.open(io.BytesIO(base64.b64decode(event[IMAGE_FILE_KEY]))) as img:
             return {
                 'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
                 'height': img.height,
@@ -123,12 +123,90 @@ def func_2_image_rotate(event, context = None):
     return {ERROR_KEY: "Unknown error processing file."}
 
 
-
+TARGET_WIDTH_KEY: str = 'target_width'
+TARGET_HEIGHT_KEY: str = 'target_height'
 def func_3_image_resize(event, context = None):
-    pass
+    try:
+        # Extract inputs
+        image_base64 = event.get(IMAGE_FILE_KEY)
+        target_width = event.get(TARGET_WIDTH_KEY)
+        target_height = event.get(TARGET_HEIGHT_KEY)
+
+        # Validate inputs
+        if not image_base64 or not target_width or not target_height:
+            return {ERROR_KEY: "Missing required inputs: image_file, target_width, or target_height."}
+
+        target_width = int(target_width)
+        target_height = int(target_height)
+
+        if target_width <= 0 or target_height <= 0:
+            return {ERROR_KEY: f"Target dimensions must be positive integers."}
+
+        # Decode and open the image
+        image_bytes = base64.b64decode(image_base64)
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # Resize the image
+        resized_image = image.resize((target_width, target_height))
+
+        # Convert back to Base64
+        output_buffer = io.BytesIO()
+        resized_image.save(output_buffer, format=image.format)
+        resized_image_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
+
+        return {
+            IMAGE_FILE_KEY: resized_image_base64,
+            "message": "Image resized successfully.",
+            TARGET_WIDTH_KEY: target_width,
+            TARGET_HEIGHT_KEY: target_height
+        }
+    except Exception as e:
+        return {ERROR_KEY: str(e)}
+    
 
 def func_4_image_grayscale(event, context = None):
-    pass
+    """
+    Function: Image Grayscale Conversion
+
+    Pass in a Base64-encoded image in a dictionary.
+    Will return a dictionary with the grayscale image and metadata or an error message.
+    """
+    if IMAGE_FILE_KEY not in event:
+        return {ERROR_KEY: f"Missing key-value pair associated with '{IMAGE_FILE_KEY}'"}
+
+    try:
+        # Decode the Base64-encoded image
+        image_data = base64.b64decode(event[IMAGE_FILE_KEY])
+        # print(f"Decoded image data length: {len(image_data)} bytes")
+
+        # Try to open the image
+        with Image.open(io.BytesIO(image_data)) as img:
+            # print(f"Image opened successfully: {img.format}, {img.size}")
+
+            # Save original dimensions
+            original_width, original_height = img.width, img.height
+
+            # Convert the image to grayscale
+            grayscale_img = img.convert("L")
+
+            # Save grayscale image to Base64
+            buffer = io.BytesIO()
+            grayscale_img.save(buffer, format="PNG")
+            grayscale_image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            # Save metadata and response
+            return {
+                IMAGE_FILE_KEY: grayscale_image_base64,
+                'original_width': original_width,
+                'original_height': original_height,
+                'grayscale_width': grayscale_img.width,
+                'grayscale_height': grayscale_img.height,
+            }
+
+    except Exception as e:
+        return {ERROR_KEY: str(e)}
+
+    return {ERROR_KEY: "Unknown error processing file."}
 
 
 BRIGHTNESS_KEY: float = 'brightness_delta'
@@ -228,8 +306,10 @@ def handle_request(event, context = None):
         return {ERROR_KEY: "Missing key-value pair associated with " + OPERATIONS_KEY}
     
     try:
+        
         img_bytes = event[IMAGE_FILE_KEY]
         operations: list[list[str, dict]] = event[OPERATIONS_KEY]
+        operation_outputs: list[dict[str, Any]] = []
         for i in range(len(operations)):
             operation_name: str = safe_list_access(operations[i], 0, '')
             operation_args: dict | None = safe_list_access(operations[i], 1)
@@ -248,12 +328,22 @@ def handle_request(event, context = None):
             response_object = operation_function(operation_args, context)
             
             if ERROR_KEY in response_object:
-                print(f"Pipeline error: Error executing function at index {i} with args {operation_args}")
-            
+                temp = operation_args.copy()
+                temp.pop(IMAGE_FILE_KEY, None)
+                print(f"Pipeline error: Error executing function at index {i} with args {temp}")
+                print(response_object[ERROR_KEY])
+                
+                
             img_bytes = response_object[IMAGE_FILE_KEY] if IMAGE_FILE_KEY in response_object else img_bytes
-
+            
+            appended_output = response_object.copy()
+            appended_output.pop(IMAGE_FILE_KEY, None)
+            # print(list(appended_output.keys()))
+            operation_outputs.append(appended_output)
+        
         return {
-            IMAGE_FILE_KEY: img_bytes
+            IMAGE_FILE_KEY: img_bytes,
+            'operation_outputs': operation_outputs
         }
                 
 
@@ -269,6 +359,15 @@ def safe_list_access(list: list, index: int, fallback = None):
     except:
         return fallback
 
+# FUNCTIONS: dict[str, Callable[[dict, Any], dict]] = {
+#     "details": func_1_image_details,
+#     "rotate": func_2_image_rotate,
+#     "resize": func_3_image_resize,
+#     "grayscale": func_4_image_grayscale,
+#     "brightness": func_5_image_brightness,
+#     "transform": func_6_image_transform
+# }
+
 # Some testing code.
 if __name__ == '__main__':
     print("\nPWD: " + os.getcwd() + "\n")
@@ -281,13 +380,19 @@ if __name__ == '__main__':
             OPERATIONS_KEY: [
                 ['details', {}],
                 ['brightness', {BRIGHTNESS_KEY: '100'}],
-                ['rotate', {ROTATION_ANGLE_KEY: 180}]
+                ['rotate', {ROTATION_ANGLE_KEY: 180}],
+                ['resize', {TARGET_WIDTH_KEY: 250, TARGET_HEIGHT_KEY: 500}],
+                ['grayscale', {}],
+                ['details', {}],
+                
             ]
         }
         
         response_body = handle_request(event_obj)
-        with open('test output.jpg', "wb") as w:
-            try:
+        
+        if ERROR_KEY not in response_body:
+            print(response_body['operation_outputs'])
+            with open('test output.jpg', "wb") as w:
                 w.write(base64.b64decode(response_body[IMAGE_FILE_KEY]))
-            except Exception as e:
-                print(e)
+        else: 
+            print(response_body)

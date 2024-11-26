@@ -41,7 +41,7 @@ def handle_request(event, context = None):
 
 
     try:
-        with Image.open(io.BytesIO(base64.decodebytes(event[IMAGE_FILE_KEY]))) as img:
+        with Image.open(io.BytesIO(base64.b64decode(event[IMAGE_FILE_KEY]))) as img:
             return {
                 'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
                 'height': img.height,
