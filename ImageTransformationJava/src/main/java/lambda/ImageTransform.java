@@ -10,11 +10,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.Base64;
 import java.util.HashMap;
 
-public class ImageGrayscale implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
+public class ImageTransform implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
 
     @Override
     public HashMap<String, Object> handleRequest(HashMap<String, Object> request, Context context) {
@@ -23,6 +22,7 @@ public class ImageGrayscale implements RequestHandler<HashMap<String, Object>, H
         try {
             // Extract input parameter
             String encodedImage = (String) request.get("image_file");
+            String targetFormat = (String) request.getOrDefault("target_format", "jpeg");
 
             if (encodedImage == null) {
                 throw new IllegalArgumentException("Missing required parameter: 'image_file'");
@@ -34,19 +34,14 @@ public class ImageGrayscale implements RequestHandler<HashMap<String, Object>, H
                 throw new IllegalArgumentException("Failed to decode image data");
             }
 
-            // Convert the image to grayscale
-            BufferedImage grayscaleImage = convertToGrayscale(originalImage);
-
-            // Encode the grayscale image back to Base64
-            String grayscaleImageBase64 = encodeImageToBase64(grayscaleImage);
-
-            // Save the grayscale image to a file (optional)
-            saveImageToFile(grayscaleImage, "grayscale_image.png");
+            // Transform image to the target format
+            String transformedImageBase64 = transformImageToFormat(originalImage, targetFormat);
 
             // Populate response attributes
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
-            inspector.addAttribute("grayscale_image", grayscaleImageBase64);
+            inspector.addAttribute("transformed_image", transformedImageBase64);
+            inspector.addAttribute("target_format", targetFormat);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -57,34 +52,22 @@ public class ImageGrayscale implements RequestHandler<HashMap<String, Object>, H
     }
 
     /**
-     * Converts a BufferedImage to grayscale.
+     * Transforms the image to the specified file format and encodes it to Base64.
      *
-     * @param image The original image to convert.
-     * @return The grayscale version of the image.
+     * @param image The original image to transform.
+     * @param format The target file format (e.g., "jpeg", "png").
+     * @return The Base64-encoded transformed image.
+     * @throws Exception If an error occurs during transformation.
      */
-    private BufferedImage convertToGrayscale(BufferedImage image) {
-        BufferedImage grayscaleImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-        grayscaleImage.getGraphics().drawImage(image, 0, 0, null);
-        return grayscaleImage;
-    }
-
-    private String encodeImageToBase64(BufferedImage image) throws Exception {
+    private String transformImageToFormat(BufferedImage image, String format) throws Exception {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", outputStream);
-        return Base64.getEncoder().encodeToString(outputStream.toByteArray());
-    }
+        boolean success = ImageIO.write(image, format, outputStream);
 
-    /**
-     * Saves the grayscale image to a file.
-     *
-     * @param image The grayscale image to save.
-     * @param fileName The name of the output file.
-     * @throws IOException If an I/O error occurs.
-     */
-    private void saveImageToFile(BufferedImage image, String fileName) throws IOException {
-        File outputFile = new File(fileName);
-        ImageIO.write(image, "png", outputFile);
-        System.out.println("Image saved to: " + outputFile.getAbsolutePath());
+        if (!success) {
+            throw new IllegalArgumentException("Unsupported target format: " + format);
+        }
+
+        return Base64.getEncoder().encodeToString(outputStream.toByteArray());
     }
 
     public static void main(String[] args) {
@@ -110,14 +93,14 @@ public class ImageGrayscale implements RequestHandler<HashMap<String, Object>, H
             System.out.println("Encoded Image (truncated): " + encodedImage.substring(0, 100) + "...");
 
             req.put("image_file", encodedImage);
+            req.put("target_format", "jpeg");
 
-            // Call the grayscale handler and print the result
-            HashMap<String, Object> response = new ImageGrayscale().handleRequest(req, null);
+            // Call the transform handler and print the result
+            HashMap<String, Object> response = new ImageTransform().handleRequest(req, null);
             System.out.println("Response: " + response);
 
         } catch (final Exception e) {
             e.printStackTrace();
         }
     }
-
 }
