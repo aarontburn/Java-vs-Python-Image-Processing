@@ -16,7 +16,10 @@ import java.io.IOException;
 import java.util.Base64;
 import java.util.HashMap;
 
-public class ImageBrightness implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
+import static lambda.Constants.ERROR_KEY;
+import static lambda.Constants.IMAGE_FILE_KEY;
+
+public class F5ImageBrightness implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
 
     private static final int MIN_BRIGHTNESS = 1;  // Minimum input value for brightness
     private static final int MAX_BRIGHTNESS = 100; // Maximum input value for brightness
@@ -27,7 +30,7 @@ public class ImageBrightness implements RequestHandler<HashMap<String, Object>, 
 
         try {
             // Extract input parameters
-            String encodedImage = (String) request.get("image_file");
+            String encodedImage = (String) request.get(IMAGE_FILE_KEY);
             Integer brightnessDelta = (Integer) request.get("brightness_delta");
 
             if (encodedImage == null || brightnessDelta == null) {
@@ -56,18 +59,19 @@ public class ImageBrightness implements RequestHandler<HashMap<String, Object>, 
             String brightenedImageBase64 = encodeImageToBase64(brightenedImage);
 
             // Save the brightened image to a file
-            saveImageToFile(brightenedImage, "brightened_image.png");
+//            saveImageToFile(brightenedImage, "brightened_image.png");
 
             // Populate response attributes
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("brightness_delta", brightnessDelta);
             inspector.addAttribute("brightness_factor", brightnessFactor);
-            inspector.addAttribute("brightened_image", brightenedImageBase64);
+            inspector.addAttribute(IMAGE_FILE_KEY, brightenedImageBase64);
 
         } catch (Exception e) {
             e.printStackTrace();
-            inspector.addAttribute("error", e.getMessage());
+            inspector = new Inspector();
+            inspector.addAttribute(ERROR_KEY, e.getMessage());
         }
 
         return inspector.finish();
@@ -138,7 +142,7 @@ public class ImageBrightness implements RequestHandler<HashMap<String, Object>, 
             req.put("brightness_delta", 100); // Example input to increase brightness significantly
 
             // Call the brightness handler and print the result
-            System.out.println(new ImageBrightness().handleRequest(req, null).toString());
+            System.out.println(new F5ImageBrightness().handleRequest(req, null).toString());
 
         } catch (final Exception e) {
             e.printStackTrace();

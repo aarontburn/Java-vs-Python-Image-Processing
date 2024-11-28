@@ -13,7 +13,10 @@ import java.io.FileInputStream;
 import java.util.Base64;
 import java.util.HashMap;
 
-public class ImageDetails implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
+import static lambda.Constants.ERROR_KEY;
+import static lambda.Constants.IMAGE_FILE_KEY;
+
+public class F1ImageDetails implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
 
     /***
      *  Function #1: Image upload and validation
@@ -40,7 +43,7 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
         Inspector inspector = new Inspector();
 
-        final String encodedImage = (String) request.get("image_file");
+        final String encodedImage = (String) request.get(IMAGE_FILE_KEY);
 
         try {
             final BufferedImage image = ImageIO.read(new ByteArrayInputStream(Base64.getDecoder().decode(encodedImage)));
@@ -54,7 +57,7 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
         } catch (final Exception e) {
             e.printStackTrace();
             inspector = new Inspector();
-            inspector.addAttribute("error", e.toString());
+            inspector.addAttribute(ERROR_KEY, e.toString());
         }
 
         return inspector.finish();
@@ -101,7 +104,7 @@ public class ImageDetails implements RequestHandler<HashMap<String, Object>, Has
             fileInputStreamReader.read(bytes);
             req.put("image_file", Base64.getEncoder().encodeToString(bytes));
 
-            System.out.println(new ImageDetails().handleRequest(req, null).toString());
+            System.out.println(new F1ImageDetails().handleRequest(req, null).toString());
 
         } catch (final Exception e) {
             e.printStackTrace();
