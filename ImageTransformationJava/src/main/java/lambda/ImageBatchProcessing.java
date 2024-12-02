@@ -20,15 +20,16 @@ import static lambda.Constants.*;
 public class ImageBatchProcessing implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {
 
     private static boolean isColdStart = true; // Tracks whether it's a cold start
-
-
-    private static final String ERROR_KEY = "error";
-    private static final String IMAGE_FILE_KEY = "image_file";
     private static final String OPERATIONS_KEY = "operations";
 
     private final Map<String, ImageProcessFunction> FUNCTIONS = new HashMap<>();
 
 
+    /***
+     *  Some testing code. This definitely doesn't work anymore after things were moved to S3.
+     *
+     *  @param args Command line arguments.
+     */
     public static void main(final String[] args) {
         System.out.println("PWD: " + System.getProperty("user.dir") + "\n");
 
@@ -67,6 +68,9 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
     }
 
 
+    /***
+     *  Constructor; just populates a function map.
+     */
     public ImageBatchProcessing() {
         FUNCTIONS.put("details", this::imageDetails);
         FUNCTIONS.put("rotate", this::imageRotate);
@@ -77,6 +81,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
     }
 
 
+    /***
+     *  The function to handle batch requests.
+     *
+     *  @param request The Lambda Function input
+     *  @param context The Lambda execution environment context object.
+     *  @return A HashMap containing request output.
+     */
     public HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         Inspector inspector = new Inspector();
 
@@ -157,15 +168,80 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
     /***
      *  Function #1: Image upload and validation
      *
-     *  @param request
-     *  @param context
-     *  @return
+     *  @param request  The image arguments.
+     *  @param context  The AWS Lambda context.
+     *  @return A response object.
      */
     public HashMap<String, Object> imageDetails(final HashMap<String, Object> request, final Context context) {
         return imageDetails(null, request, context);
     }
 
-    public HashMap<String, Object> imageDetails(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    /***
+     *  Function 2: Image Rotation
+     *
+     *  @param request  The image arguments.
+     *  @param context  The AWS Lambda context.
+     *  @return A response object.
+     */
+    public HashMap<String, Object> imageRotate(final HashMap<String, Object> request, final Context context) {
+        return imageRotate(null, request, context);
+    }
+
+    /***
+     *  Function 3: Image Resize
+     *
+     *  @param request  The image arguments.
+     *  @param context  The AWS Lambda context.
+     *  @return A response object.
+     */
+    public HashMap<String, Object> imageResize(final HashMap<String, Object> request, final Context context) {
+        return imageResize(null, request, context);
+    }
+
+    /***
+     *  Function 4: Image Grayscale
+     *
+     *  @param request  The image arguments.
+     *  @param context  The AWS Lambda context.
+     *  @return A response object.
+     */
+    public HashMap<String, Object> imageGrayscale(final HashMap<String, Object> request, final Context context) {
+        return imageGrayscale(null, request, context);
+    }
+
+    /***
+     *  Function 5: Image Brightness
+     *
+     *  @param request  The image arguments.
+     *  @param context  The AWS Lambda context.
+     *  @return A response object.
+     */
+    public HashMap<String, Object> imageBrightness(final HashMap<String, Object> request, final Context context) {
+        return imageBrightness(null, request, context);
+    }
+
+    /***
+     *  Function 6: Image Transform
+     *
+     *  @param request  The image arguments.
+     *  @param context  The AWS Lambda context.
+     *  @return A response object.
+     */
+    public HashMap<String, Object> imageTransform(final HashMap<String, Object> request, final Context context) {
+        return imageTransform(null, request, context);
+    }
+
+
+    /***
+     *  Function #1: Image Details Batch Method.
+     *      This function should only be called by the batch handler, which passes in a buffered image to use.
+     *
+     *  @param image    The image to get the details of.
+     *  @param request  The request arguments.
+     *  @param context  The AWS Lambda Context.
+     *  @return A response object.
+     */
+    private HashMap<String, Object> imageDetails(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
@@ -215,17 +291,15 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
 
     /***
-     *  Function 2: Image Rotation
+     *  Function #2: Rotation Batch Method.
+     *      This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param request
-     *  @param context
-     *  @return
+     *  @param image    The image to rotate.
+     *  @param request  The request arguments.
+     *  @param context  The AWS Lambda Context
+     *  @return A response object.
      */
-    public HashMap<String, Object> imageRotate(final HashMap<String, Object> request, final Context context) {
-        return imageRotate(null, request, context);
-    }
-
-    public HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    private HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
@@ -261,11 +335,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             // Perform rotation
             final BufferedImage rotatedImage = rotateImage(originalImage, rotationAngle);
 
-
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "rotated_" + fileName, "png", rotatedImage);
-            if (!successfulWriteToS3) {
-                throw new RuntimeException("Could not write image to S3");
+            if (!isBatch) {
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "rotated_" + fileName, "png", rotatedImage);
+                if (!successfulWriteToS3) {
+                    throw new RuntimeException("Could not write image to S3");
+                }
             }
+
 
             // Populate response attributes
             inspector.addAttribute("original_width", originalImage.getWidth());
@@ -291,6 +367,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
         return inspector.finish();
     }
 
+    /***
+     *  Helper method for image rotation.
+     *
+     *  @param image            The image to rotate.
+     *  @param rotationAngle    The rotation angle.
+     *  @return The rotated angle.
+     */
     private BufferedImage rotateImage(final BufferedImage image, final int rotationAngle) {
         final int width = image.getWidth();
         final int height = image.getHeight();
@@ -319,17 +402,15 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
 
     /***
-     *  Function 3: Image Resize
+     *  Function #3: Image Resize Batch Method.
+     *      This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param request
-     *  @param context
-     *  @return
+     *  @param image    The image to modify.
+     *  @param request  The request arguments.
+     *  @param context  The AWS Lambda Context
+     *  @return A response object.
      */
-    public HashMap<String, Object> imageResize(final HashMap<String, Object> request, final Context context) {
-        return imageResize(null, request, context);
-    }
-
-    public HashMap<String, Object> imageResize(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    private HashMap<String, Object> imageResize(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
@@ -368,10 +449,11 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             final BufferedImage outputImage = new BufferedImage(targetWidth, targetHeight, originalImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : originalImage.getType());
             outputImage.getGraphics().drawImage(resizedImage, 0, 0, null);
 
-
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "resized_" + fileName, "png", outputImage);
-            if (!successfulWriteToS3) {
-                throw new RuntimeException("Could not write image to S3");
+            if (!isBatch) {
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "resized_" + fileName, "png", outputImage);
+                if (!successfulWriteToS3) {
+                    throw new RuntimeException("Could not write image to S3");
+                }
             }
 
 
@@ -398,17 +480,15 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
 
     /***
-     *  Function 4: Image Grayscale
+     *  Function #4: Grayscale Batch Method.
+     *      This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param request
-     *  @param context
-     *  @return
+     *  @param image    The image to modify.
+     *  @param request  The request arguments.
+     *  @param context  The AWS Lambda Context
+     *  @return A response object.
      */
-    public HashMap<String, Object> imageGrayscale(final HashMap<String, Object> request, final Context context) {
-        return imageGrayscale(null, request, context);
-    }
-
-    public HashMap<String, Object> imageGrayscale(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    private HashMap<String, Object> imageGrayscale(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
@@ -437,9 +517,11 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             final BufferedImage grayscaleImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
             grayscaleImage.getGraphics().drawImage(originalImage, 0, 0, null);
 
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "grayscaled_" + fileName, "png", grayscaleImage);
-            if (!successfulWriteToS3) {
-                throw new RuntimeException("Could not write image to S3");
+            if (!isBatch) {
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "grayscaled_" + fileName, "png", grayscaleImage);
+                if (!successfulWriteToS3) {
+                    throw new RuntimeException("Could not write image to S3");
+                }
             }
 
             // Populate response attributes
@@ -463,23 +545,27 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
     }
 
 
-
-    private static final int MIN_BRIGHTNESS = 1;  // Minimum input value for brightness
-    private static final int MAX_BRIGHTNESS = 100; // Maximum input value for brightness
-
+    /***
+     *  The minimum brightness value.
+     */
+    private static final int MIN_BRIGHTNESS = 1;
 
     /***
-     *  Function 5: Image Brightness
-     *
-     *  @param request
-     *  @param context
-     *  @return
+     *  The maximum brightness value.
      */
-    public HashMap<String, Object> imageBrightness(final HashMap<String, Object> request, final Context context) {
-        return imageBrightness(null, request, context);
-    }
+    private static final int MAX_BRIGHTNESS = 100;
 
-    public HashMap<String, Object> imageBrightness(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    /***
+     *  Function #5: Brightness Batch Method.
+     *      This function should only be called by the batch handler, which passes in a buffered image to use.
+     *
+     *  @param image    The image to modify.
+     *  @param request  The request arguments.
+     *  @param context  The AWS Lambda Context
+     *  @return A response object.
+     */
+    private HashMap<String, Object> imageBrightness(final BufferedImage image,
+                                                    final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
@@ -517,9 +603,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             // Adjust brightness
             final BufferedImage brightenedImage = adjustBrightness(originalImage, brightnessFactor);
 
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "brightness_" + fileName, "png", brightenedImage);
-            if (!successfulWriteToS3) {
-                throw new RuntimeException("Could not write image to S3");
+            if (!isBatch) {
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "brightness_" + fileName, "png", brightenedImage);
+                if (!successfulWriteToS3) {
+                    throw new RuntimeException("Could not write image to S3");
+
+                }
             }
 
             // Populate response attributes
@@ -546,7 +635,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
 
     /**
-     * Adjusts the brightness of a BufferedImage.
+     * Helper function to adjust brightness.
      *
      * @param image            The original image to modify.
      * @param brightnessFactor The factor to adjust the brightness (1.0 = original, < 1.0 = darker, > 1.0 = brighter).
@@ -564,16 +653,16 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
 
     /***
-     *  Function 6: Image Transform
+     *  Function #6: Brightness Batch Method.
+     *      This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param request
-     *  @param context
-     *  @return
+     *  @param image    The image to modify.
+     *  @param request  The request arguments.
+     *  @param context  The AWS Lambda Context
+     *  @return A response object.
      */
-    public HashMap<String, Object> imageTransform(final HashMap<String, Object> request, final Context context) {
-        return imageTransform(null, request, context);
-    }
-    public HashMap<String, Object> imageTransform(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    private HashMap<String, Object> imageTransform(final BufferedImage image,
+                                                   final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
@@ -607,9 +696,11 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
             final BufferedImage transformedImage = ImageIO.read(new ByteArrayInputStream(outputStream.toByteArray()));
 
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "transformed_" + fileName, "png", transformedImage);
-            if (!successfulWriteToS3) {
-                throw new RuntimeException("Could not write image to S3");
+            if (!isBatch) {
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "transformed_" + fileName, "png", transformedImage);
+                if (!successfulWriteToS3) {
+                    throw new RuntimeException("Could not write image to S3");
+                }
             }
 
 
