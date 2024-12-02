@@ -25,11 +25,11 @@ public class F2ImageRotation implements RequestHandler<HashMap<String, Object>, 
 
         try {
             // Extract input parameters
-            String bucketname = (String) request.get("bucketname");
-            String filename = (String) request.get("filename");
+            String bucketName = (String) request.get("bucketname");
+            String fileName = (String) request.get("filename");
             Integer rotationAngle = (Integer) request.get("rotation_angle");
 
-            if (bucketname == null || filename == null || rotationAngle == null) {
+            if (bucketName == null || fileName == null || rotationAngle == null) {
                 throw new IllegalArgumentException("Missing required parameters: 'bucketname', 'filename', or 'rotation_angle'");
             }
 
@@ -41,7 +41,7 @@ public class F2ImageRotation implements RequestHandler<HashMap<String, Object>, 
             // Fetch the image from S3
             long s3StartTime = System.currentTimeMillis();
             AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
-            S3Object s3Object = s3Client.getObject(bucketname, filename);
+            S3Object s3Object = s3Client.getObject(bucketName, fileName);
             InputStream objectData = s3Object.getObjectContent();
             long s3EndTime = System.currentTimeMillis();
             long networkLatency = s3EndTime - s3StartTime;
@@ -68,11 +68,11 @@ public class F2ImageRotation implements RequestHandler<HashMap<String, Object>, 
             byte[] rotatedImageBytes = outputStream.toByteArray();
 
             // Save the rotated image back to S3
-            String rotatedFilename = "rotated_" + filename;
+            String rotatedFilename = "rotated_" + fileName;
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(rotatedImageBytes.length);
             metadata.setContentType("image/png");
-            s3Client.putObject(bucketname, rotatedFilename, new ByteArrayInputStream(rotatedImageBytes), metadata);
+            s3Client.putObject(bucketName, rotatedFilename, new ByteArrayInputStream(rotatedImageBytes), metadata);
 
             long processingEndTime = System.currentTimeMillis();
             long functionRuntime = processingEndTime - processingStartTime;
