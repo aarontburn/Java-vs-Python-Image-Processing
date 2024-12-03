@@ -95,8 +95,8 @@ def func_1_image_details(event, context = None, batch_image: Image = None):
         
         img: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
         
-        local_cold_start = cold_start
         global cold_start
+        local_cold_start = cold_start
         cold_start = False
         
         output_dict: dict[str, Any] = {
@@ -163,8 +163,8 @@ def func_2_image_rotate(event, context = None, batch_image: Image = None):
         if rotation_angle not in [90, 180, 270]:
             return {ERROR_KEY: "Invalid rotation angle. Only 90, 180, or 270 degrees are supported."}
 
-        local_cold_start = cold_start
         global cold_start
+        local_cold_start = cold_start
         cold_start = False
 
         # Save original dimensions
@@ -209,8 +209,8 @@ def func_3_image_resize(event, context = None, batch_image: Image = None):
     if validate_message:
         return {ERROR_KEY: validate_message}
     
-    local_cold_start = cold_start
     global cold_start
+    local_cold_start = cold_start
     cold_start = False
     
     try:
@@ -260,8 +260,8 @@ def func_4_image_grayscale(event, context = None, batch_image: Image = None):
     if validate_message:
         return {ERROR_KEY: validate_message}
     
-    local_cold_start = cold_start
     global cold_start
+    local_cold_start = cold_start
     cold_start = False
     
     try:
@@ -340,8 +340,8 @@ def func_5_image_brightness(event, context = None, batch_image: Image = None):
     if validate_message:
         return {ERROR_KEY: validate_message}
     
-    local_cold_start = cold_start
     global cold_start
+    local_cold_start = cold_start
     cold_start = False
     
     brightness_delta: float = 1.
@@ -393,8 +393,8 @@ def func_6_image_transform(event, context = None, batch_image: Image = None):
         compress_quality: int = int(event.get('compress_quality', 85))  # Default to 85% quality (for lossy formats like JPEG)
         preserve_metadata: bool = bool(event.get('preserve_metadata', True))  # Default to preserving metadata
 
-        local_cold_start = cold_start
         global cold_start
+        local_cold_start = cold_start
         cold_start = False
 
         if output_format not in SUPPORTED_FORMATS:
