@@ -1,13 +1,61 @@
 import base64
 import os
-from PIL import Image, ImageEnhance, UnidentifiedImageError
 import io
+import boto3
 from typing import Callable, Any
+from PIL import Image, ImageEnhance
+import boto3.s3
+
 
 IMAGE_FILE_KEY: str = 'image_file'
 ERROR_KEY: str = 'error'
+BUCKET_KEY: str = "bucketname"
+FILE_NAME_KEY: str = "filename"
 
-def func_1_image_details(event, context = None):
+cold_start: bool = True
+
+def validate_event(event, *keys):
+    out = ''
+    for key in keys:
+        if key not in event:
+            out += key + ", "
+            
+    if len(out) == 0:
+        return None
+    return "Missing request parameters: " + out[:-2]
+    
+    
+def get_image_from_s3(bucket_name: str,
+                      file_name: str, 
+                      region_name: str = "us-east-1") -> Image:
+    
+    s3 = boto3.resource('s3', region_name)
+    obj = s3.Bucket(bucket_name).Object(file_name)
+    file_stream = obj.get()["Body"]
+    return Image.open(file_stream)
+
+def save_image_to_s3(bucket_name: str,
+                     file_name: str,
+                     image: Image, 
+                     format: str = "png",
+                     region_name: str = "us-east-1") -> bool:
+    
+    try:
+        s3 = boto3.resource('s3', region_name)
+        obj = s3.Bucket(bucket_name).Object(file_name)
+        
+        file_stream = io.BytesIO()
+        image.save(file_stream, format=format)
+        obj.put(Body=file_stream.getvalue())
+    except Exception as e:
+        print(e)
+        return False
+    return True
+        
+
+
+def func_1_image_details(event, context = None, batch_image: Image = None):
+    
     """
     Function #1: Image upload and validation
 
@@ -35,19 +83,35 @@ def func_1_image_details(event, context = None):
     :param context: 
     :returns:       A dictionary containing the response data.
     """
-    if IMAGE_FILE_KEY not in event:
-        return {ERROR_KEY: "Missing key-value pair associated with " + IMAGE_FILE_KEY }
-
+    is_batch: bool = batch_image != None
+    
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
 
     try:
-        with Image.open(io.BytesIO(base64.b64decode(event[IMAGE_FILE_KEY]))) as img:
-            return {
-                'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
-                'height': img.height,
-                'width': img.width,
-                'mode': img.mode,
-                'has_transparency_data': 1 if img.has_transparency_data else 0
-            }
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
+        
+        img: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        
+        local_cold_start = cold_start
+        global cold_start
+        cold_start = False
+        
+        output_dict: dict[str, Any] = {
+            'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
+            'height': img.height,
+            'width': img.width,
+            'mode': img.mode,
+            'has_transparency_data': 1 if img.has_transparency_data else 0,
+            "cold_start": 1 if local_cold_start else 0
+        }
+        
+        if is_batch:
+            output_dict[IMAGE_FILE_KEY] = img
+        
+        return output_dict
     except Exception as e:
         return {ERROR_KEY: str(e)}
 
@@ -57,7 +121,7 @@ def func_1_image_details(event, context = None):
 
 
 ROTATION_ANGLE_KEY = 'rotation_angle'
-def func_2_image_rotate(event, context = None):
+def func_2_image_rotate(event, context = None, batch_image: Image = None):
     """
     Function #2: Image Rotation
     
@@ -83,38 +147,51 @@ def func_2_image_rotate(event, context = None):
         'error': str -> Error message
     }
     """
-    if IMAGE_FILE_KEY not in event or ROTATION_ANGLE_KEY not in event:
-        return {ERROR_KEY: f"Missing key-value pair associated with '{IMAGE_FILE_KEY}' or '{ROTATION_ANGLE_KEY}'"}
+    is_batch: bool = batch_image != None
+    
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, ROTATION_ANGLE_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
 
     try:
-        # Decode the Base64-encoded image
-        image_data = base64.b64decode(event[IMAGE_FILE_KEY])
-        rotation_angle = event[ROTATION_ANGLE_KEY]
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
+        rotation_angle: int = int(event[ROTATION_ANGLE_KEY])
+        
+        img: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
         if rotation_angle not in [90, 180, 270]:
             return {ERROR_KEY: "Invalid rotation angle. Only 90, 180, or 270 degrees are supported."}
 
-        with Image.open(io.BytesIO(image_data)) as img:
-            # Save original dimensions
-            original_width, original_height = img.width, img.height
+        local_cold_start = cold_start
+        global cold_start
+        cold_start = False
 
-            # Perform the rotation
-            rotated_img = img.rotate(-rotation_angle, expand=True)
+        # Save original dimensions
+        original_width, original_height= img.width, img.height
 
-            # Save rotated image to Base64
-            buffer = io.BytesIO()
-            rotated_img.save(buffer, format="PNG")
-            rotated_image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        # Perform the rotation
+        rotated_img: Image = img.rotate(-rotation_angle, expand=True)
 
-            # Save metadata and response
-            return {
-                IMAGE_FILE_KEY: rotated_image_base64,
-                'original_width': original_width,
-                'original_height': original_height,
-                'rotated_width': rotated_img.width,
-                'rotated_height': rotated_img.height,
-                'rotation_angle': rotation_angle,
-            }
+        if not is_batch:
+            successful_write_to_s3: bool = save_image_to_s3(bucket_name, "rotated_" + file_name, rotated_img, "png")
+            if not successful_write_to_s3:
+                raise RuntimeError("Could not write image to S3.")
+
+
+        output_dict: dict[str, Any] = {
+            'original_width': original_width,
+            'original_height': original_height,
+            'rotated_width': rotated_img.width,
+            'rotated_height': rotated_img.height,
+            'rotation_angle': rotation_angle,
+            "cold_start": 1 if local_cold_start else 0
+        }
+        
+        if is_batch:
+            output_dict[IMAGE_FILE_KEY] = rotated_img
+
+        return output_dict
 
     except Exception as e:
         return {ERROR_KEY: str(e)}
@@ -125,83 +202,97 @@ def func_2_image_rotate(event, context = None):
 
 TARGET_WIDTH_KEY: str = 'target_width'
 TARGET_HEIGHT_KEY: str = 'target_height'
-def func_3_image_resize(event, context = None):
+def func_3_image_resize(event, context = None, batch_image: Image = None):
+    is_batch: bool = batch_image != None
+    
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, TARGET_WIDTH_KEY, TARGET_HEIGHT_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
+    
+    local_cold_start = cold_start
+    global cold_start
+    cold_start = False
+    
     try:
-        # Extract inputs
-        image_base64 = event.get(IMAGE_FILE_KEY)
-        target_width = event.get(TARGET_WIDTH_KEY)
-        target_height = event.get(TARGET_HEIGHT_KEY)
-
-        # Validate inputs
-        if not image_base64 or not target_width or not target_height:
-            return {ERROR_KEY: "Missing required inputs: image_file, target_width, or target_height."}
-
-        target_width = int(target_width)
-        target_height = int(target_height)
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
+        target_width = int(event[TARGET_WIDTH_KEY])
+        target_height = int(event[TARGET_HEIGHT_KEY])
 
         if target_width <= 0 or target_height <= 0:
             return {ERROR_KEY: f"Target dimensions must be positive integers."}
 
-        # Decode and open the image
-        image_bytes = base64.b64decode(image_base64)
-        image = Image.open(io.BytesIO(image_bytes))
+        image: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
         # Resize the image
-        resized_image = image.resize((target_width, target_height))
+        resized_image: Image = image.resize((target_width, target_height))
+        
+        if not is_batch:
+            successful_write_to_s3: bool = save_image_to_s3(bucket_name, "resized_" + file_name, resized_image, "png")
+            if not successful_write_to_s3:
+                raise RuntimeError("Could not write image to S3.")
 
-        # Convert back to Base64
-        output_buffer = io.BytesIO()
-        resized_image.save(output_buffer, format=image.format)
-        resized_image_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
-
-        return {
-            IMAGE_FILE_KEY: resized_image_base64,
+        output_dict: dict[str, Any] = {
             "message": "Image resized successfully.",
             TARGET_WIDTH_KEY: target_width,
-            TARGET_HEIGHT_KEY: target_height
+            TARGET_HEIGHT_KEY: target_height,
+            "cold_start": 1 if local_cold_start else 0
         }
+        
+        if is_batch:
+            output_dict[IMAGE_FILE_KEY] = resized_image
+
+        return output_dict
     except Exception as e:
         return {ERROR_KEY: str(e)}
     
 
-def func_4_image_grayscale(event, context = None):
+def func_4_image_grayscale(event, context = None, batch_image: Image = None):
     """
     Function: Image Grayscale Conversion
 
     Pass in a Base64-encoded image in a dictionary.
     Will return a dictionary with the grayscale image and metadata or an error message.
     """
-    if IMAGE_FILE_KEY not in event:
-        return {ERROR_KEY: f"Missing key-value pair associated with '{IMAGE_FILE_KEY}'"}
-
+    is_batch: bool = batch_image != None
+    
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
+    
+    local_cold_start = cold_start
+    global cold_start
+    cold_start = False
+    
     try:
-        # Decode the Base64-encoded image
-        image_data = base64.b64decode(event[IMAGE_FILE_KEY])
-        # print(f"Decoded image data length: {len(image_data)} bytes")
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
+        img: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
-        # Try to open the image
-        with Image.open(io.BytesIO(image_data)) as img:
-            # print(f"Image opened successfully: {img.format}, {img.size}")
+        # Save original dimensions
+        original_width, original_height = img.width, img.height
 
-            # Save original dimensions
-            original_width, original_height = img.width, img.height
+        # Convert the image to grayscale
+        grayscale_img = img.convert("L")
+        
+        if not is_batch:
+            successful_write_to_s3: bool = save_image_to_s3(bucket_name, "grayscaled_" + file_name, grayscale_img, "png")
+            if not successful_write_to_s3:
+                raise RuntimeError("Could not write image to S3.")
+        
+        output_dict: dict[str, Any] = {
+            'original_width': original_width,
+            'original_height': original_height,
+            'grayscale_width': grayscale_img.width,
+            'grayscale_height': grayscale_img.height,
+            "cold_start": 1 if local_cold_start else 0
+        }
+        
+        if is_batch:
+            output_dict[IMAGE_FILE_KEY] = grayscale_img
 
-            # Convert the image to grayscale
-            grayscale_img = img.convert("L")
-
-            # Save grayscale image to Base64
-            buffer = io.BytesIO()
-            grayscale_img.save(buffer, format="PNG")
-            grayscale_image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            # Save metadata and response
-            return {
-                IMAGE_FILE_KEY: grayscale_image_base64,
-                'original_width': original_width,
-                'original_height': original_height,
-                'grayscale_width': grayscale_img.width,
-                'grayscale_height': grayscale_img.height,
-            }
+        
+        return output_dict
 
     except Exception as e:
         return {ERROR_KEY: str(e)}
@@ -211,7 +302,7 @@ def func_4_image_grayscale(event, context = None):
 
 BRIGHTNESS_KEY: float = 'brightness_delta'
 BRIGHTNESS_BOUNDS: tuple[int, int] = (0, 100) # I found that 100 is the maximum value before errors happen.
-def func_5_image_brightness(event, context = None):
+def func_5_image_brightness(event, context = None, batch_image: Image = None):
     """
     Function #5: Image brightness modification
     
@@ -242,68 +333,78 @@ def func_5_image_brightness(event, context = None):
     :param context: 
     :returns:       A dictionary containing the response data.
     """
-
-    # Input validations
-    if IMAGE_FILE_KEY not in event:
-        return {ERROR_KEY: "Missing key-value pair associated with " + IMAGE_FILE_KEY }
+    is_batch: bool = batch_image != None
+    
+    
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, BRIGHTNESS_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
+    
+    local_cold_start = cold_start
+    global cold_start
+    cold_start = False
     
     brightness_delta: float = 1.
-    if BRIGHTNESS_KEY not in event:
-        return {ERROR_KEY: "Missing key-value pair associated with " + BRIGHTNESS_KEY }
-    else:
-        try:
-            brightness_delta = float(event[BRIGHTNESS_KEY])
-            if brightness_delta < BRIGHTNESS_BOUNDS[0] or brightness_delta > BRIGHTNESS_BOUNDS[1]:
-                return {ERROR_KEY: f"'{BRIGHTNESS_KEY}' is out-of-bounds \
-                        ({BRIGHTNESS_BOUNDS[0]}-{BRIGHTNESS_BOUNDS[1]}): {brightness_delta}"}
+    try:
+        brightness_delta = float(event[BRIGHTNESS_KEY])
+        if brightness_delta < BRIGHTNESS_BOUNDS[0] or brightness_delta > BRIGHTNESS_BOUNDS[1]:
+            return {ERROR_KEY: f"'{BRIGHTNESS_KEY}' is out-of-bounds \
+                    ({BRIGHTNESS_BOUNDS[0]}-{BRIGHTNESS_BOUNDS[1]}): {brightness_delta}"}
 
-        except:
-            return {ERROR_KEY: f"'{BRIGHTNESS_KEY}' is not parsable as a float."}
+    except:
+        return {ERROR_KEY: f"'{BRIGHTNESS_KEY}' is not parsable as a float."}
 
     # Modify and return image.
     try:
-        with Image.open(io.BytesIO(base64.decodebytes(event[IMAGE_FILE_KEY]))) as img:
-            modified_img: Image = ImageEnhance.Brightness(img).enhance(brightness_delta)
-            
-            buffer: io.BytesIO = io.BytesIO()
-            modified_img.save(buffer, format="PNG")
-            encoded_image: bytes = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
+        
+        img: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        modified_img: Image = ImageEnhance.Brightness(img).enhance(brightness_delta)
+        
+        if not is_batch:
+            successful_write_to_s3: bool = save_image_to_s3(bucket_name, "brightness_" + file_name, modified_img, "png")
+            if not successful_write_to_s3:
+                raise RuntimeError("Could not write image to S3.")
 
-            return {
-                IMAGE_FILE_KEY: encoded_image,
-                "args": {BRIGHTNESS_KEY: event[BRIGHTNESS_KEY]},
-            }
+        output_dict: dict[str, Any] = {
+            "args": {BRIGHTNESS_KEY: event[BRIGHTNESS_KEY]},
+            "cold_start": 1 if local_cold_start else 0
+        }
+        
+        if is_batch:
+            output_dict[IMAGE_FILE_KEY] = modified_img
+        
+        return output_dict
 
 
     except Exception as e:
         return {ERROR_KEY: str(e)}
     
 SUPPORTED_FORMATS = {"JPEG", "PNG", "BMP", "GIF", "TIFF"}
-def func_6_image_transform(event, context = None):
+def func_6_image_transform(event, context = None, batch_image: Image = None):
+    is_batch: bool = batch_image != None
+    
     try:
-        # Extract inputs
-        image_base64 = event.get(IMAGE_FILE_KEY)
-        output_format = event.get('output_format', 'JPEG').upper()  # Default to JPEG
-        compress_quality = event.get('compress_quality', 85)  # Default to 85% quality (for lossy formats like JPEG)
-        preserve_metadata = event.get('preserve_metadata', True)  # Default to preserving metadata
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
+        
+        output_format: str = str(event.get('output_format', 'JPEG')).upper()  # Default to JPEG
+        compress_quality: int = int(event.get('compress_quality', 85))  # Default to 85% quality (for lossy formats like JPEG)
+        preserve_metadata: bool = bool(event.get('preserve_metadata', True))  # Default to preserving metadata
 
-        # Validate inputs
-        if not image_base64:
-            return {ERROR_KEY: "Missing required input: " + IMAGE_FILE_KEY}
+        local_cold_start = cold_start
+        global cold_start
+        cold_start = False
+
         if output_format not in SUPPORTED_FORMATS:
             return {ERROR_KEY: f"Unsupported output format: {output_format}. Supported formats: {', '.join(SUPPORTED_FORMATS)}"}
         if not (1 <= compress_quality <= 100):
             return {ERROR_KEY: "Compression quality must be between 1 and 100."}
 
-        # Decode the Base64 image
-        try:
-            image_bytes = base64.b64decode(image_base64)
-            image = Image.open(io.BytesIO(image_bytes))
-        except (base64.binascii.Error, UnidentifiedImageError) as e:
-            return {ERROR_KEY: f"Invalid image data: {str(e)}"}
-
+        image: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
         # Convert image to the desired format
-        output_buffer = io.BytesIO()
+        output_buffer: io.BytesIO = io.BytesIO()
         save_kwargs = {}
 
         # Handle metadata
@@ -319,16 +420,26 @@ def func_6_image_transform(event, context = None):
             image.save(output_buffer, format=output_format, **save_kwargs)
         except Exception as e:
             return {ERROR_KEY: f"Error finalizing image: {str(e)}"}
+        
+        image = Image.open(output_buffer)
+        
+        if not is_batch:
+            successful_write_to_s3: bool = save_image_to_s3(bucket_name, "transformed_" + file_name, image, "png")
+            if not successful_write_to_s3:
+                raise RuntimeError("Could not write image to S3.")
 
-        # Encode the finalized image to Base64
-        finalized_image_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
 
-        # Prepare response
-        return {
-            IMAGE_FILE_KEY: finalized_image_base64,
+        output_dict: dict[str, Any] = {
             "output_format": output_format,
-            "message": "Image finalized successfully."
+            "message": "Image finalized successfully.",
+            "cold_start": 1 if local_cold_start else 0
         }
+        
+        if is_batch:
+            output_dict[IMAGE_FILE_KEY] = image
+            
+        
+        return output_dict
 
     except Exception as e:
         return {ERROR_KEY: f"Unexpected error: {str(e)}"}
@@ -336,7 +447,7 @@ def func_6_image_transform(event, context = None):
 
 
 OPERATIONS_KEY: str = 'operations'
-FUNCTIONS: dict[str, Callable[[dict, Any], dict]] = {
+FUNCTIONS: dict[str, Callable[[dict, Any, Any], dict]] = {
     "details": func_1_image_details,
     "rotate": func_2_image_rotate,
     "resize": func_3_image_resize,
@@ -348,19 +459,19 @@ FUNCTIONS: dict[str, Callable[[dict, Any], dict]] = {
 def handle_request(event, context = None):
     """
     {
-        'image_file': The image encoded in base64.
         'operations': [ ["<operation name>": { args } ] ]
     }
     """
-    if IMAGE_FILE_KEY not in event:
-        return {ERROR_KEY: "Missing key-value pair associated with " + IMAGE_FILE_KEY}
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, OPERATIONS_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
 
-    if OPERATIONS_KEY not in event:
-        return {ERROR_KEY: "Missing key-value pair associated with " + OPERATIONS_KEY}
-    
     try:
+        bucket_name: str = str(event[BUCKET_KEY])
+        file_name: str = str(event[FILE_NAME_KEY])
         
-        img_bytes = event[IMAGE_FILE_KEY]
+        image: Image = get_image_from_s3(bucket_name, file_name)
+        
         operations: list[list[str, dict]] = event[OPERATIONS_KEY]
         operation_outputs: list[dict[str, Any]] = []
         for i in range(len(operations)):
@@ -377,8 +488,7 @@ def handle_request(event, context = None):
 
             print(f"Executing function {i}: {operation_name}")
             operation_function = FUNCTIONS[operation_name]
-            operation_args[IMAGE_FILE_KEY] = img_bytes # Replace the argument image bytes with the modified one
-            response_object = operation_function(operation_args, context)
+            response_object = operation_function(operation_args, context, image)
             
             if ERROR_KEY in response_object:
                 temp = operation_args.copy()
@@ -387,15 +497,19 @@ def handle_request(event, context = None):
                 print(response_object[ERROR_KEY])
                 
                 
-            img_bytes = response_object[IMAGE_FILE_KEY] if IMAGE_FILE_KEY in response_object else img_bytes
+            image = response_object[IMAGE_FILE_KEY] if IMAGE_FILE_KEY in response_object else image
             
             appended_output = response_object.copy()
             appended_output.pop(IMAGE_FILE_KEY, None)
             # print(list(appended_output.keys()))
             operation_outputs.append(appended_output)
         
+        
+        successful_write_to_s3: bool = save_image_to_s3(bucket_name, "batch_" + file_name, image, "png")
+        if not successful_write_to_s3:
+            raise RuntimeError("Could not write image to S3.")
+
         return {
-            IMAGE_FILE_KEY: img_bytes,
             'operation_outputs': operation_outputs
         }
                 
