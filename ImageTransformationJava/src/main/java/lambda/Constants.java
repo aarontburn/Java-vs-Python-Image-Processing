@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +22,15 @@ public class Constants {
     public static final String ERROR_KEY = "error";
     public static final String BUCKET_KEY = "bucketname";
     public static final String FILE_NAME_KEY = "filename";
+    public static final String IMAGE_URL_KEY = "url";
+    public static final String IMAGE_URL_EXPIRES_IN = "url_expires_in_seconds";
+    public static final String IMAGE_ACCESS_LATENCY_KEY = "network_latency_ms";
+    public static final String FUNCTION_RUN_TIME_KEY = "function_runtime_ms";
+    public static final String ESTIMATED_COST_KEY = "estimated_cost_usd";
+    public static final String COLD_START_KEY = "cold_start";
+
+    public static final int IMAGE_URL_EXPIRATION_SECONDS = 3600;
+
 
 
     public static HashMap<String, Object> hashmapFromArray(final Object[][] inputArr) {
@@ -79,13 +89,21 @@ public class Constants {
         final S3Object s3Object = AmazonS3ClientBuilder.defaultClient().getObject(bucketName, fileName);
         final InputStream objectData = s3Object.getObjectContent();
 
-        inspector.addAttribute("network_latency_ms", System.currentTimeMillis() - s3StartTime);
+        inspector.addAttribute(IMAGE_ACCESS_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
         return objectData;
     }
 
+    public static String getDownloadableImageURL(final String bucketName, final String fileName) {
+        final Date expiration = new Date();
+        final long expTimeMillis = expiration.getTime() + 1000 * IMAGE_URL_EXPIRATION_SECONDS;
+        expiration.setTime(expTimeMillis);
+
+        return AmazonS3ClientBuilder.defaultClient().generatePresignedUrl(bucketName, fileName, expiration).toString();
+    }
+
     public static double estimateCost(final long runTime) {
-        double memorySizeGB = 0.512; // Lambda memory size in GB
-        double pricePerGBSecond = 0.00001667; // Pricing for Lambda
+        final double memorySizeGB = 0.512; // Lambda memory size in GB
+        final double pricePerGBSecond = 0.00001667; // Pricing for Lambda
         return (runTime / 1000.0) * memorySizeGB * pricePerGBSecond;
     }
 

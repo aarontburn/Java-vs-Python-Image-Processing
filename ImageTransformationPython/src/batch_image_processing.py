@@ -137,8 +137,6 @@ def func_1_image_details(event: AWSRequestObject,
         output_dict['has_transparency_data'] = 1 if img.has_transparency_data else 0
         output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
         
-        print(img.height)
-        
         function_run_time: float = time.time() - processing_start_time
         output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
         output_dict[ESTIMATED_COST_KEY] = function_run_time

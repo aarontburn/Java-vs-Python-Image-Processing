@@ -90,6 +90,8 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      */
     public HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         Inspector inspector = new Inspector();
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, OPERATIONS_KEY);
         if (validateMessage != null) {
@@ -98,16 +100,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
         try {
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final Object[][] operations = (Object[][]) request.get(OPERATIONS_KEY);
+            final String outputFileName = "batch_" + fileName;
 
             final long processingStartTime = System.currentTimeMillis();
-
 
             final List<HashMap<String, Object>> operationsOutput = new ArrayList<>();
 
@@ -145,16 +144,18 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             }
 
 
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "batch_" + fileName, "png", image);
+            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", image);
             if (!successfulWriteToS3) {
                 throw new RuntimeException("Could not write image to S3");
             }
 
             inspector.addAttribute("operation_outputs", operationsOutput);
+            inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+            inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -246,6 +247,8 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
         Inspector inspector = new Inspector();
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
@@ -254,17 +257,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
-
         final long processingStartTime = System.currentTimeMillis();
-
-        final String bucketName = (String) request.get(BUCKET_KEY);
-        final String fileName = (String) request.get(FILE_NAME_KEY);
 
 
         try {
+            final String bucketName = (String) request.get(BUCKET_KEY);
+            final String fileName = (String) request.get(FILE_NAME_KEY);
+
             final InputStream objectData = Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             final BufferedImage imageObject = isBatch ? image : ImageIO.read(objectData);
 
@@ -277,8 +276,8 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
                 inspector.addAttribute(IMAGE_FILE_KEY, imageObject);
             }
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -303,6 +302,8 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "rotation_angle");
         if (validateMessage != null) {
@@ -311,14 +312,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
         try {
             // Extract input parameters
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final Integer rotationAngle = (Integer) request.get("rotation_angle");
+            final String outputFileName = "rotated_" + fileName;
 
             final long processingStartTime = System.currentTimeMillis();
 
@@ -336,7 +335,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             final BufferedImage rotatedImage = rotateImage(originalImage, rotationAngle);
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "rotated_" + fileName, "png", rotatedImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", rotatedImage);
                 if (!successfulWriteToS3) {
                     throw new RuntimeException("Could not write image to S3");
                 }
@@ -349,14 +348,17 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             inspector.addAttribute("rotated_width", rotatedImage.getWidth());
             inspector.addAttribute("rotated_height", rotatedImage.getHeight());
             inspector.addAttribute("rotation_angle", rotationAngle);
-            inspector.addAttribute("rotated_image_key", "rotated_" + fileName);
+            inspector.addAttribute("rotated_image_key", outputFileName);
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, rotatedImage);
+            } else {
+                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -411,9 +413,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @return A response object.
      */
     private HashMap<String, Object> imageResize(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "target_width", "target_height");
 
@@ -423,16 +428,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
-
         try {
             // Extract inputs from the request
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final Integer targetWidth = (Integer) request.get("target_width");
             final Integer targetHeight = (Integer) request.get("target_height");
+            final String outputFileName = "resized_" + fileName;
 
 
             final long processingStartTime = System.currentTimeMillis();
@@ -450,7 +452,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             outputImage.getGraphics().drawImage(resizedImage, 0, 0, null);
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "resized_" + fileName, "png", outputImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", outputImage);
                 if (!successfulWriteToS3) {
                     throw new RuntimeException("Could not write image to S3");
                 }
@@ -463,11 +465,14 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             inspector.addAttribute("target_height", targetHeight);
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, outputImage);
+            } else {
+                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -489,10 +494,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @return A response object.
      */
     private HashMap<String, Object> imageGrayscale(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
-
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
@@ -501,13 +508,11 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
-
         try {
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
+            final String outputFileName = "grayscaled_" + fileName;
+
 
             final long processingStartTime = System.currentTimeMillis();
 
@@ -518,7 +523,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             grayscaleImage.getGraphics().drawImage(originalImage, 0, 0, null);
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "grayscaled_" + fileName, "png", grayscaleImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", grayscaleImage);
                 if (!successfulWriteToS3) {
                     throw new RuntimeException("Could not write image to S3");
                 }
@@ -529,11 +534,14 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             inspector.addAttribute("original_height", originalImage.getHeight());
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, grayscaleImage);
+            } else {
+                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -564,11 +572,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @param context  The AWS Lambda Context
      *  @return A response object.
      */
-    private HashMap<String, Object> imageBrightness(final BufferedImage image,
-                                                    final HashMap<String, Object> request, final Context context) {
+    private HashMap<String, Object> imageBrightness(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
+
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "brightness_delta");
         if (validateMessage != null) {
@@ -577,15 +587,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
 
         try {
             // Extract input parameters
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final Integer brightnessDelta = (Integer) request.get("brightness_delta");
+            final String outputFileName = "brightness_" + fileName;
 
             final long processingStartTime = System.currentTimeMillis();
 
@@ -604,7 +612,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             final BufferedImage brightenedImage = adjustBrightness(originalImage, brightnessFactor);
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "brightness_" + fileName, "png", brightenedImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", brightenedImage);
                 if (!successfulWriteToS3) {
                     throw new RuntimeException("Could not write image to S3");
 
@@ -618,11 +626,14 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             inspector.addAttribute("brightness_factor", brightnessFactor);
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, brightenedImage);
+            } else {
+                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -661,11 +672,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @param context  The AWS Lambda Context
      *  @return A response object.
      */
-    private HashMap<String, Object> imageTransform(final BufferedImage image,
-                                                   final HashMap<String, Object> request, final Context context) {
+    private HashMap<String, Object> imageTransform(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
+        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
+        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "target_format");
         if (validateMessage != null) {
@@ -674,15 +686,13 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             return inspector.finish();
         }
 
-        inspector.addAttribute("cold_start", isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
-
         try {
             // Extract input parameter
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final String targetFormat = (String) request.get("target_format");
+            final String outputFileName = "transformed_" + fileName;
+
 
             final long processingStartTime = System.currentTimeMillis();
 
@@ -697,7 +707,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             final BufferedImage transformedImage = ImageIO.read(new ByteArrayInputStream(outputStream.toByteArray()));
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, "transformed_" + fileName, "png", transformedImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", transformedImage);
                 if (!successfulWriteToS3) {
                     throw new RuntimeException("Could not write image to S3");
                 }
@@ -710,11 +720,14 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             inspector.addAttribute("target_format", targetFormat);
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, transformedImage);
+            } else {
+                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute("function_runtime_ms", functionRunTime);
-            inspector.addAttribute("estimated_cost_usd", estimateCost(functionRunTime));
+            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
+            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
 
         } catch (Exception e) {
