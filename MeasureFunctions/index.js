@@ -1,19 +1,21 @@
-const PYTHON_BATCH_FUNCTION_URL = "https://alq28v8tc5.execute-api.us-east-1.amazonaws.com/image_transformation_batch";
-const PYTHON_FUNCTION_1_IMAGE_DETAILS_URL = "https://851eqoqxj4.execute-api.us-east-1.amazonaws.com/image_transformation_details";
-const PYTHON_FUNCTION_2_IMAGE_ROTATE_URL = "https://4w90llitq9.execute-api.us-east-1.amazonaws.com/image_transformation_rotate";
-const PYTHON_FUNCTION_3_IMAGE_RESIZE_URL = "https://rxhhsgc28h.execute-api.us-east-1.amazonaws.com/image_transformation_resize";
-const PYTHON_FUNCTION_4_IMAGE_GRAYSCALE_URL = "https://yg20xgk7ae.execute-api.us-east-1.amazonaws.com/image_transformation_grayscale";
-const PYTHON_FUNCTION_5_IMAGE_BRIGHTNESS_URL = "https://j47ytbbtg1.execute-api.us-east-1.amazonaws.com/image_transformation_brightness";
-const PYTHON_FUNCTION_6_IMAGE_TRANSFORM_URL = "https://n01so0hl66.execute-api.us-east-1.amazonaws.com/image_transformation_transform";
+const PYTHON_BATCH_FUNCTION_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/batch";
+
+const PYTHON_FUNCTION_1_IMAGE_DETAILS_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/details";
+const PYTHON_FUNCTION_2_IMAGE_ROTATE_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/rotate";
+const PYTHON_FUNCTION_3_IMAGE_RESIZE_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/resize";
+const PYTHON_FUNCTION_4_IMAGE_GRAYSCALE_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/grayscale";
+const PYTHON_FUNCTION_5_IMAGE_BRIGHTNESS_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/brightness";
+const PYTHON_FUNCTION_6_IMAGE_TRANSFORM_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/transform";
 
 
-const JAVA_BATCH_FUNCTION_URL = "https://kllmszc7z5.execute-api.us-east-1.amazonaws.com/image_transformation_java_batch"
-const JAVA_FUNCTION_1_IMAGE_DETAILS_URL = "https://cmc3y2rfbb.execute-api.us-east-1.amazonaws.com/image_transformation_java_details"
-const JAVA_FUNCTION_2_IMAGE_ROTATE_URL = "https://jyoel0khkc.execute-api.us-east-1.amazonaws.com/image_transformation_java_rotate"
-const JAVA_FUNCTION_3_IMAGE_RESIZE_URL = "https://nwq7okd0o2.execute-api.us-east-1.amazonaws.com/image_transformation_java_resize"
-const JAVA_FUNCTION_4_IMAGE_GRAYSCALE_URL = "https://32jae2yac8.execute-api.us-east-1.amazonaws.com/image_transformation_java_grayscale"
-const JAVA_FUNCTION_5_IMAGE_BRIGHTNESS_URL = "https://m6pjeyck6h.execute-api.us-east-1.amazonaws.com/image_transformation_java_brightness"
-const JAVA_FUNCTION_6_IMAGE_TRANSFORM_URL = "https://iw3re9dw77.execute-api.us-east-1.amazonaws.com/image_transformation_java_transform"
+
+const JAVA_BATCH_FUNCTION_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/batch"
+const JAVA_FUNCTION_1_IMAGE_DETAILS_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/details";
+const JAVA_FUNCTION_2_IMAGE_ROTATE_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/rotate";
+const JAVA_FUNCTION_3_IMAGE_RESIZE_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/resize";
+const JAVA_FUNCTION_4_IMAGE_GRAYSCALE_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/grayscale";
+const JAVA_FUNCTION_5_IMAGE_BRIGHTNESS_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/brightness";
+const JAVA_FUNCTION_6_IMAGE_TRANSFORM_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/java/transform";
 
 const BUCKET_NAME = "imagetransformation462"
 
