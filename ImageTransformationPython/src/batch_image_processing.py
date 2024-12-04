@@ -6,11 +6,13 @@ from typing import Callable, Any
 from PIL import ImageEnhance, Image
 from PIL.Image import Image as ImageType
 import boto3.resources
-import boto3.resources.factory
 import boto3.s3
+import time
 
 # Custom typing
 AWSFunctionOutput = dict[str, Any]
+AWSRequestObject = Any
+AWSContextObject = Any
 
 # Event and response keys
 IMAGE_FILE_KEY: str = 'image_file'
@@ -20,6 +22,9 @@ FILE_NAME_KEY: str = "filename"
 COLD_START_KEY: str = "cold_start"
 IMAGE_URL_KEY: str = "url"
 IMAGE_URL_EXPIRES_IN_KEY: str = "url_expires_in_seconds"
+IMAGE_ACCESS_LATENCY_KEY: str = "network_latency_s"
+FUNCTION_RUN_TIME_KEY: str = "function_runtime_s"
+ESTIMATED_COST_KEY: str = "estimated_cost_usd"
 
 # Default URL expiration time, in seconds
 IMAGE_URL_EXPIRATION_SECONDS = 3600
@@ -27,12 +32,18 @@ IMAGE_URL_EXPIRATION_SECONDS = 3600
 cold_start: bool = True
 
 
-def validate_event(event, *keys) -> None | str:
+def estimate_cost(run_time: int) -> float:
+    memory_size_gb: float = 0.512; # Lambda memory size in GB
+    price_per_gb_second: float = 0.00001667; # Pricing for Lambda
+    return (run_time / 1000.0) * memory_size_gb * price_per_gb_second;
+
+
+def validate_event(event: AWSRequestObject, *keys: tuple[str]) -> None | str:
     """
     Validates an event dictionary. If the event is valid, returns None.
     Otherwise, return an error string containing what keys are missing.
     """
-    out = ''
+    out: str = ''
     for key in keys:
         if key not in event:
             out += key + ", "
@@ -42,21 +53,27 @@ def validate_event(event, *keys) -> None | str:
     return "Missing request parameters: " + out[:-2]
 
 
-def get_image_from_s3(bucket_name: str,
-                      file_name: str,
-                      region_name: str = "us-east-1") -> ImageType:
+def get_image_from_s3_and_record_time(bucket_name: str,
+                                      file_name: str,
+                                      output_dict: AWSFunctionOutput,
+                                      region_name: str = "us-east-1") -> ImageType:
     """
     Retrieves an image from S3 from a provided bucket name and file name.
     """
+    s3_start_time: float = time.time()
+    
     s3 = boto3.resource('s3', region_name)
     obj = s3.Bucket(bucket_name).Object(file_name)
     file_stream: io.BytesIO = obj.get()["Body"]
-    return Image.open(file_stream)
+    image: ImageType = Image.open(file_stream)
+    
+    output_dict[IMAGE_ACCESS_LATENCY_KEY] = time.time() - s3_start_time
+    return image
 
 
 def save_image_to_s3(bucket_name: str,
                      file_name: str,
-                     image: Image,
+                     image: ImageType,
                      file_format: str = "png",
                      region_name: str = "us-east-1") -> bool:
     """
@@ -65,12 +82,10 @@ def save_image_to_s3(bucket_name: str,
     try:
         s3 = boto3.resource('s3', region_name)
         obj = s3.Bucket(bucket_name).Object(file_name)
-
         file_stream: io.BytesIO = io.BytesIO()
         image.save(file_stream, format=file_format)
         obj.put(Body=file_stream.getvalue())
-        return True    
-    
+        return True
     except Exception as e:
         print(e)
     return False
@@ -92,11 +107,16 @@ def get_downloadable_image_url(bucket_name: str, file_name: str) -> str | None:
 
 
 
-def func_1_image_details(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
+def func_1_image_details(event: AWSRequestObject, 
+                         context: AWSContextObject = None, 
+                         batch_image: ImageType = None) -> AWSFunctionOutput:
+    
     is_batch: bool = batch_image is not None
     global cold_start; 
     local_cold_start: bool = cold_start; 
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
     if validate_message:
@@ -105,17 +125,23 @@ def func_1_image_details(event, context=None, batch_image: ImageType = None) -> 
     try:
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
+        
+        processing_start_time: float = time.time()
 
-        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
 
-        output_dict: dict[str, Any] = {
-            'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
-            'height': img.height,
-            'width': img.width,
-            'mode': img.mode,
-            'has_transparency_data': 1 if img.has_transparency_data else 0,
-            "cold_start": 1 if local_cold_start else 0
-        }
+        output_dict['region'] = os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA'
+        output_dict['height'] = img.height
+        output_dict['width'] = img.width
+        output_dict['mode'] = img.mode
+        output_dict['has_transparency_data'] = 1 if img.has_transparency_data else 0
+        output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
+        
+        print(img.height)
+        
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = function_run_time
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = img
@@ -128,7 +154,9 @@ def func_1_image_details(event, context=None, batch_image: ImageType = None) -> 
 ROTATION_ANGLE_KEY: str = 'rotation_angle'
 
 
-def func_2_image_rotate(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
+def func_2_image_rotate(event: AWSRequestObject, 
+                        context: AWSContextObject = None, 
+                        batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function #2: Image Rotation
     
@@ -158,6 +186,8 @@ def func_2_image_rotate(event, context=None, batch_image: ImageType = None) -> A
     global cold_start
     local_cold_start: bool = cold_start
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, ROTATION_ANGLE_KEY)
     if validate_message:
@@ -168,9 +198,10 @@ def func_2_image_rotate(event, context=None, batch_image: ImageType = None) -> A
         file_name: str = str(event[FILE_NAME_KEY])
         rotation_angle: int = int(event[ROTATION_ANGLE_KEY])
         output_file_name: str = "rotated_" + file_name
+        
+        processing_start_time: float = time.time()
 
-
-        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
 
         if rotation_angle not in [90, 180, 270]:
             return {ERROR_KEY: "Invalid rotation angle. Only 90, 180, or 270 degrees are supported."}
@@ -186,15 +217,16 @@ def func_2_image_rotate(event, context=None, batch_image: ImageType = None) -> A
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
                 
-
-        output_dict: dict[str, Any] = {
-            'original_width': original_width,
-            'original_height': original_height,
-            'rotated_width': rotated_img.width,
-            'rotated_height': rotated_img.height,
-            'rotation_angle': rotation_angle,
-            COLD_START_KEY: 1 if local_cold_start else 0,
-        }
+        output_dict['original_width'] = original_width
+        output_dict['original_height'] = original_height
+        output_dict['rotated_width'] = rotated_img.width
+        output_dict['rotated_height'] = rotated_img.height
+        output_dict['rotation_angle'] = rotation_angle
+        output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
+        
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = estimate_cost(function_run_time)
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = rotated_img
@@ -212,11 +244,16 @@ TARGET_WIDTH_KEY: str = 'target_width'
 TARGET_HEIGHT_KEY: str = 'target_height'
 
 
-def func_3_image_resize(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
+def func_3_image_resize(event: AWSRequestObject, 
+                        context: AWSContextObject = None, 
+                        batch_image: ImageType = None) -> AWSFunctionOutput:
+    
     is_batch: bool = batch_image is not None
     global cold_start
     local_cold_start: bool = cold_start
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, TARGET_WIDTH_KEY, TARGET_HEIGHT_KEY)
     if validate_message:
@@ -228,11 +265,13 @@ def func_3_image_resize(event, context=None, batch_image: ImageType = None) -> A
         target_width = int(event[TARGET_WIDTH_KEY])
         target_height = int(event[TARGET_HEIGHT_KEY])
         output_file_name: str = "resized_" + file_name
+        
+        processing_start_time: float = time.time()
 
         if target_width <= 0 or target_height <= 0:
             return {ERROR_KEY: f"Target dimensions must be positive integers."}
 
-        image: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        image: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
 
         # Resize the image
         resized_image: ImageType = image.resize((target_width, target_height))
@@ -242,12 +281,14 @@ def func_3_image_resize(event, context=None, batch_image: ImageType = None) -> A
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict: dict[str, Any] = {
-            "message": "Image resized successfully.",
-            TARGET_WIDTH_KEY: target_width,
-            TARGET_HEIGHT_KEY: target_height,
-            COLD_START_KEY: 1 if local_cold_start else 0
-        }
+        output_dict["message"] = "Image resized successfully."
+        output_dict[TARGET_WIDTH_KEY] = target_width
+        output_dict[TARGET_HEIGHT_KEY] = target_height
+        output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
+            
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = estimate_cost(function_run_time)
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = resized_image
@@ -261,7 +302,9 @@ def func_3_image_resize(event, context=None, batch_image: ImageType = None) -> A
         return {ERROR_KEY: str(e)}
 
 
-def func_4_image_grayscale(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
+def func_4_image_grayscale(event: AWSRequestObject, 
+                           context: AWSContextObject = None, 
+                           batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function 4: Image Grayscale Conversion
     """
@@ -269,6 +312,8 @@ def func_4_image_grayscale(event, context=None, batch_image: ImageType = None) -
     global cold_start
     local_cold_start: bool = cold_start
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
     if validate_message:
@@ -278,7 +323,10 @@ def func_4_image_grayscale(event, context=None, batch_image: ImageType = None) -
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
         output_file_name: str = "grayscaled_" + file_name
-        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        
+        processing_start_time: float = time.time()
+        
+        img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
 
         # Save original dimensions
         original_width, original_height = img.width, img.height
@@ -291,13 +339,16 @@ def func_4_image_grayscale(event, context=None, batch_image: ImageType = None) -
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict: dict[str, Any] = {
-            'original_width': original_width,
-            'original_height': original_height,
-            'grayscale_width': grayscale_img.width,
-            'grayscale_height': grayscale_img.height,
-            COLD_START_KEY: 1 if local_cold_start else 0
-        }
+
+        output_dict['original_width'] = original_width
+        output_dict['original_height'] = original_height
+        output_dict['grayscale_width'] = grayscale_img.width
+        output_dict['grayscale_height'] = grayscale_img.height
+        output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
+        
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = estimate_cost(function_run_time)
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = grayscale_img
@@ -316,7 +367,9 @@ BRIGHTNESS_KEY: str = 'brightness_delta'
 BRIGHTNESS_BOUNDS: tuple[int, int] = (0, 100)  # I found that 100 is the maximum value before errors happen.
 
 
-def func_5_image_brightness(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
+def func_5_image_brightness(event: AWSRequestObject, 
+                            context: AWSContextObject = None, 
+                            batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function #5: Image brightness modification
     """
@@ -324,6 +377,8 @@ def func_5_image_brightness(event, context=None, batch_image: ImageType = None) 
     global cold_start
     local_cold_start: bool = cold_start
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, BRIGHTNESS_KEY)
     if validate_message:
@@ -343,8 +398,10 @@ def func_5_image_brightness(event, context=None, batch_image: ImageType = None) 
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
         output_file_name: str = "brightness_" + file_name
+        
+        processing_start_time: float = time.time()
 
-        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
         modified_img: ImageType = ImageEnhance.Brightness(img).enhance(brightness_delta)
 
         if not is_batch:
@@ -352,11 +409,13 @@ def func_5_image_brightness(event, context=None, batch_image: ImageType = None) 
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict: dict[str, Any] = {
-            "args": {BRIGHTNESS_KEY: event[BRIGHTNESS_KEY]},
-            COLD_START_KEY: 1 if local_cold_start else 0
-        }
-
+        output_dict["args"] = {BRIGHTNESS_KEY: event[BRIGHTNESS_KEY]}
+        output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
+        
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = estimate_cost(function_run_time)
+        
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = modified_img
         else:
@@ -373,29 +432,38 @@ def func_5_image_brightness(event, context=None, batch_image: ImageType = None) 
 SUPPORTED_FORMATS: set[str] = {"JPEG", "PNG", "BMP", "GIF", "TIFF"}
 
 
-def func_6_image_transform(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
+def func_6_image_transform(event: AWSRequestObject, 
+                           context: AWSContextObject = None, 
+                           batch_image: ImageType = None) -> AWSFunctionOutput:
+    
     is_batch: bool = batch_image is not None
     global cold_start
     local_cold_start: bool = cold_start
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
+    
+    validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
+    if validate_message:
+        return {ERROR_KEY: validate_message}
 
     try:
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
-        output_file_name: str = "transformed_" + file_name
-
-
         output_format: str = str(event.get('output_format', 'JPEG')).upper()  # Default to JPEG
         compress_quality: int = int(event.get('compress_quality', 85))  # Default to 85% quality (for lossy formats like JPEG)
         preserve_metadata: bool = bool(event.get('preserve_metadata', True))  # Default to preserving metadata
-
+        output_file_name: str = "transformed_" + file_name
+        
+        processing_start_time: float = time.time()
+        
         if output_format not in SUPPORTED_FORMATS:
             return {
                 ERROR_KEY: f"Unsupported output format: {output_format}. Supported formats: {', '.join(SUPPORTED_FORMATS)}"}
         if not (1 <= compress_quality <= 100):
             return {ERROR_KEY: "Compression quality must be between 1 and 100."}
 
-        image: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        image: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
         # Convert image to the desired format
         output_buffer: io.BytesIO = io.BytesIO()
         save_kwargs: dict[str, Any] = {}
@@ -421,11 +489,13 @@ def func_6_image_transform(event, context=None, batch_image: ImageType = None) -
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict: dict[str, Any] = {
-            "output_format": output_format,
-            "message": "Image finalized successfully.",
-            COLD_START_KEY: 1 if local_cold_start else 0
-        }
+        output_dict["output_format"] = output_format
+        output_dict["message"] = "Image finalized successfully."
+        output_dict[COLD_START_KEY] = 1 if local_cold_start else 0
+        
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = estimate_cost(function_run_time)
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = image
@@ -451,10 +521,14 @@ FUNCTIONS: dict[str, Callable[[dict, Any, ImageType], AWSFunctionOutput]] = {
 }
 
 
-def handle_request(event, context=None) -> AWSFunctionOutput:
+def handle_request(event: AWSRequestObject, context: AWSContextObject = None) -> AWSFunctionOutput:
+    
     global cold_start
     local_cold_start: bool = cold_start
     cold_start = False
+    
+    output_dict: AWSFunctionOutput = {} 
+
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, OPERATIONS_KEY)
     if validate_message:
@@ -465,8 +539,9 @@ def handle_request(event, context=None) -> AWSFunctionOutput:
         file_name: str = str(event[FILE_NAME_KEY])
         output_file_name: str = "batch_" + file_name
 
+        processing_start_time: float = time.time()
 
-        image: ImageType = get_image_from_s3(bucket_name, file_name)
+        image: ImageType = get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
 
         operations: list[list[str, dict]] = event[OPERATIONS_KEY]
         operation_outputs: list[dict[str, Any]] = []
@@ -502,13 +577,19 @@ def handle_request(event, context=None) -> AWSFunctionOutput:
         if not successful_write_to_s3:
             raise RuntimeError("Could not write image to S3.")
 
-
-        return {
-            'operation_outputs': operation_outputs,
-            COLD_START_KEY: 1 if local_cold_start else 0,
-            IMAGE_URL_KEY: get_downloadable_image_url(bucket_name, output_file_name),
-            IMAGE_URL_EXPIRATION_SECONDS: IMAGE_URL_EXPIRATION_SECONDS
-        }
+        
+        output_dict ['operation_outputs'] = operation_outputs
+        output_dict [COLD_START_KEY]= 1 if local_cold_start else 0
+        
+        function_run_time: float = time.time() - processing_start_time
+        output_dict[FUNCTION_RUN_TIME_KEY] = function_run_time
+        output_dict[ESTIMATED_COST_KEY] = estimate_cost(function_run_time)
+        
+        output_dict [IMAGE_URL_KEY] = get_downloadable_image_url(bucket_name, output_file_name)
+        output_dict [IMAGE_URL_EXPIRATION_SECONDS] = IMAGE_URL_EXPIRATION_SECONDS
+        
+        
+        return output_dict
 
 
     except Exception as e:
