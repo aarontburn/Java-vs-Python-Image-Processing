@@ -3,12 +3,14 @@ import os
 import io
 import boto3
 from typing import Callable, Any
-from PIL import Image, ImageEnhance
+from PIL import ImageEnhance, Image
+from PIL.Image import Image as ImageType
+import boto3.resources
+import boto3.resources.factory
 import boto3.s3
 
 # Custom typing
 AWSFunctionOutput = dict[str, Any]
-ImageType = Image.Image
 
 # Event and response keys
 IMAGE_FILE_KEY: str = 'image_file'
@@ -17,7 +19,7 @@ BUCKET_KEY: str = "bucketname"
 FILE_NAME_KEY: str = "filename"
 COLD_START_KEY: str = "cold_start"
 IMAGE_URL_KEY: str = "url"
-IMAGE_URL_EXPIRES_IN_KEY: str = "url_expires_in"
+IMAGE_URL_EXPIRES_IN_KEY: str = "url_expires_in_seconds"
 
 # Default URL expiration time, in seconds
 IMAGE_URL_EXPIRATION_SECONDS = 3600
@@ -48,13 +50,13 @@ def get_image_from_s3(bucket_name: str,
     """
     s3 = boto3.resource('s3', region_name)
     obj = s3.Bucket(bucket_name).Object(file_name)
-    file_stream = obj.get()["Body"]
+    file_stream: io.BytesIO = obj.get()["Body"]
     return Image.open(file_stream)
 
 
 def save_image_to_s3(bucket_name: str,
                      file_name: str,
-                     image: ImageType,
+                     image: Image,
                      file_format: str = "png",
                      region_name: str = "us-east-1") -> bool:
     """
@@ -67,8 +69,8 @@ def save_image_to_s3(bucket_name: str,
         file_stream: io.BytesIO = io.BytesIO()
         image.save(file_stream, format=file_format)
         obj.put(Body=file_stream.getvalue())
-
         return True    
+    
     except Exception as e:
         print(e)
     return False
@@ -90,10 +92,10 @@ def get_downloadable_image_url(bucket_name: str, file_name: str) -> str | None:
 
 
 
-def func_1_image_details(event, context=None, batch_image: Image.Image = None) -> AWSFunctionOutput:
+def func_1_image_details(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
     is_batch: bool = batch_image is not None
-    global cold_start
-    local_cold_start: bool = cold_start
+    global cold_start; 
+    local_cold_start: bool = cold_start; 
     cold_start = False
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
@@ -104,7 +106,7 @@ def func_1_image_details(event, context=None, batch_image: Image.Image = None) -
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
 
-        img: Image.Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
         output_dict: dict[str, Any] = {
             'region': os.environ['AWS_REGION'] if 'AWS_REGION' in os.environ else 'NO_REGION_DATA',
@@ -126,7 +128,7 @@ def func_1_image_details(event, context=None, batch_image: Image.Image = None) -
 ROTATION_ANGLE_KEY: str = 'rotation_angle'
 
 
-def func_2_image_rotate(event, context=None, batch_image: Image.Image = None) -> AWSFunctionOutput:
+def func_2_image_rotate(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function #2: Image Rotation
     
@@ -168,7 +170,7 @@ def func_2_image_rotate(event, context=None, batch_image: Image.Image = None) ->
         output_file_name: str = "rotated_" + file_name
 
 
-        img: Image.Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
         if rotation_angle not in [90, 180, 270]:
             return {ERROR_KEY: "Invalid rotation angle. Only 90, 180, or 270 degrees are supported."}
@@ -177,7 +179,7 @@ def func_2_image_rotate(event, context=None, batch_image: Image.Image = None) ->
         original_width, original_height = img.width, img.height
 
         # Perform the rotation
-        rotated_img: Image.Image = img.rotate(-rotation_angle, expand=True)
+        rotated_img: ImageType = img.rotate(-rotation_angle, expand=True)
 
         if not is_batch:
             successful_write_to_s3: bool = save_image_to_s3(bucket_name, output_file_name, rotated_img, "png")
@@ -210,7 +212,7 @@ TARGET_WIDTH_KEY: str = 'target_width'
 TARGET_HEIGHT_KEY: str = 'target_height'
 
 
-def func_3_image_resize(event, context=None, batch_image: Image.Image = None) -> AWSFunctionOutput:
+def func_3_image_resize(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
     is_batch: bool = batch_image is not None
     global cold_start
     local_cold_start: bool = cold_start
@@ -230,10 +232,10 @@ def func_3_image_resize(event, context=None, batch_image: Image.Image = None) ->
         if target_width <= 0 or target_height <= 0:
             return {ERROR_KEY: f"Target dimensions must be positive integers."}
 
-        image: Image.Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        image: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
         # Resize the image
-        resized_image: Image.Image = image.resize((target_width, target_height))
+        resized_image: ImageType = image.resize((target_width, target_height))
 
         if not is_batch:
             successful_write_to_s3: bool = save_image_to_s3(bucket_name, output_file_name, resized_image, "png")
@@ -259,7 +261,7 @@ def func_3_image_resize(event, context=None, batch_image: Image.Image = None) ->
         return {ERROR_KEY: str(e)}
 
 
-def func_4_image_grayscale(event, context=None, batch_image: Image.Image = None) -> AWSFunctionOutput:
+def func_4_image_grayscale(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function 4: Image Grayscale Conversion
     """
@@ -276,17 +278,16 @@ def func_4_image_grayscale(event, context=None, batch_image: Image.Image = None)
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
         output_file_name: str = "grayscaled_" + file_name
-        img: Image.Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
 
         # Save original dimensions
         original_width, original_height = img.width, img.height
 
         # Convert the image to grayscale
-        grayscale_img = img.convert("L")
+        grayscale_img: ImageType = img.convert("L")
 
         if not is_batch:
-            successful_write_to_s3: bool = save_image_to_s3(bucket_name, output_file_name, grayscale_img,
-                                                            "png")
+            successful_write_to_s3: bool = save_image_to_s3(bucket_name, output_file_name, grayscale_img, "png")
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
@@ -315,7 +316,7 @@ BRIGHTNESS_KEY: str = 'brightness_delta'
 BRIGHTNESS_BOUNDS: tuple[int, int] = (0, 100)  # I found that 100 is the maximum value before errors happen.
 
 
-def func_5_image_brightness(event, context=None, batch_image: Image.Image = None) -> AWSFunctionOutput:
+def func_5_image_brightness(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function #5: Image brightness modification
     """
@@ -343,8 +344,8 @@ def func_5_image_brightness(event, context=None, batch_image: Image.Image = None
         file_name: str = str(event[FILE_NAME_KEY])
         output_file_name: str = "brightness_" + file_name
 
-        img: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
-        modified_img: Image = ImageEnhance.Brightness(img).enhance(brightness_delta)
+        img: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        modified_img: ImageType = ImageEnhance.Brightness(img).enhance(brightness_delta)
 
         if not is_batch:
             successful_write_to_s3: bool = save_image_to_s3(bucket_name, output_file_name, modified_img, "png")
@@ -372,7 +373,7 @@ def func_5_image_brightness(event, context=None, batch_image: Image.Image = None
 SUPPORTED_FORMATS: set[str] = {"JPEG", "PNG", "BMP", "GIF", "TIFF"}
 
 
-def func_6_image_transform(event, context=None, batch_image: Image = None) -> AWSFunctionOutput:
+def func_6_image_transform(event, context=None, batch_image: ImageType = None) -> AWSFunctionOutput:
     is_batch: bool = batch_image is not None
     global cold_start
     local_cold_start: bool = cold_start
@@ -394,7 +395,7 @@ def func_6_image_transform(event, context=None, batch_image: Image = None) -> AW
         if not (1 <= compress_quality <= 100):
             return {ERROR_KEY: "Compression quality must be between 1 and 100."}
 
-        image: Image = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
+        image: ImageType = batch_image if is_batch else get_image_from_s3(bucket_name, file_name)
         # Convert image to the desired format
         output_buffer: io.BytesIO = io.BytesIO()
         save_kwargs: dict[str, Any] = {}
@@ -440,7 +441,7 @@ def func_6_image_transform(event, context=None, batch_image: Image = None) -> AW
 
 
 OPERATIONS_KEY: str = 'operations'
-FUNCTIONS: dict[str, Callable[[dict, Any, Any], AWSFunctionOutput]] = {
+FUNCTIONS: dict[str, Callable[[dict, Any, ImageType], AWSFunctionOutput]] = {
     "details": func_1_image_details,
     "rotate": func_2_image_rotate,
     "resize": func_3_image_resize,
@@ -465,7 +466,7 @@ def handle_request(event, context=None) -> AWSFunctionOutput:
         output_file_name: str = "batch_" + file_name
 
 
-        image: Image = get_image_from_s3(bucket_name, file_name)
+        image: ImageType = get_image_from_s3(bucket_name, file_name)
 
         operations: list[list[str, dict]] = event[OPERATIONS_KEY]
         operation_outputs: list[dict[str, Any]] = []
@@ -482,7 +483,7 @@ def handle_request(event, context=None) -> AWSFunctionOutput:
                 continue
 
             print(f"Executing function {i}: {operation_name}")
-            operation_function: Callable[[dict, Any, Any], AWSFunctionOutput] = FUNCTIONS[operation_name]
+            operation_function: Callable[[dict, Any, ImageType], AWSFunctionOutput] = FUNCTIONS[operation_name]
             response_object: AWSFunctionOutput = operation_function(operation_args, context, image)
 
             if ERROR_KEY in response_object:
