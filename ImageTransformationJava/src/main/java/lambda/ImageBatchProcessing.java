@@ -413,6 +413,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @return A response object.
      */
     private HashMap<String, Object> imageResize(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+        final long functionStartTime = System.currentTimeMillis();
 
         final boolean isBatch = image != null;
 
@@ -459,10 +460,18 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             }
 
 
+
             // Add resized image details to the response
             inspector.addAttribute("message", "Image resized successfully.");
+            inspector.addAttribute("original_width", originalImage.getWidth());
+            inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("target_width", targetWidth);
             inspector.addAttribute("target_height", targetHeight);
+            inspector.addAttribute(LANGUAGE_KEY, "Java");
+            inspector.addAttribute(VERSION_KEY, 0.5);
+            inspector.addAttribute(START_TIME_KEY, functionStartTime);
+            inspector.addAttribute(END_TIME_KEY, System.currentTimeMillis());
+
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, outputImage);
             } else {
@@ -471,6 +480,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
+            inspector.addAttribute(ROUND_TRIP_TIME_KEY, functionRunTime + (long) inspector.getAttribute(IMAGE_ACCESS_LATENCY_KEY));
             inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
             inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 

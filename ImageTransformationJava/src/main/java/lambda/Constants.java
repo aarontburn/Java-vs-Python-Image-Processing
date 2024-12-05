@@ -28,6 +28,11 @@ public class Constants {
     public static final String FUNCTION_RUN_TIME_KEY = "function_runtime_ms";
     public static final String ESTIMATED_COST_KEY = "estimated_cost_usd";
     public static final String COLD_START_KEY = "cold_start";
+    public static final String LANGUAGE_KEY = "language";
+    public static final String VERSION_KEY = "version";
+    public static final String ROUND_TRIP_TIME_KEY = "round_trip_time";
+    public static final String START_TIME_KEY = "start_time";
+    public static final String END_TIME_KEY = "end_time";
 
     public static final int IMAGE_URL_EXPIRATION_SECONDS = 3600;
 
