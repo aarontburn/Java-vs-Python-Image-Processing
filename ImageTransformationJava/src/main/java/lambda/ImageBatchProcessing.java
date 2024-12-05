@@ -504,12 +504,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @return A response object.
      */
     private HashMap<String, Object> imageGrayscale(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
-
+        final long functionStartTime = System.currentTimeMillis();
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
         inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
+        isColdStart = false;
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
@@ -523,13 +523,18 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final String outputFileName = "grayscaled_" + fileName;
 
-
             final long processingStartTime = System.currentTimeMillis();
 
-            final BufferedImage originalImage = isBatch ? image : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
+            final BufferedImage originalImage = isBatch
+                    ? image
+                    : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
 
             // Convert the image to grayscale
-            final BufferedImage grayscaleImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+            final BufferedImage grayscaleImage = new BufferedImage(
+                    originalImage.getWidth(),
+                    originalImage.getHeight(),
+                    BufferedImage.TYPE_BYTE_GRAY
+            );
             grayscaleImage.getGraphics().drawImage(originalImage, 0, 0, null);
 
             if (!isBatch) {
@@ -539,9 +544,15 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
                 }
             }
 
-            // Populate response attributes
+            // Add details to the response
+            inspector.addAttribute("message", "Image grayscaled successfully.");
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
+            inspector.addAttribute(LANGUAGE_KEY, "Java");
+            inspector.addAttribute(VERSION_KEY, 0.5);
+            inspector.addAttribute(START_TIME_KEY, functionStartTime);
+            inspector.addAttribute(END_TIME_KEY, System.currentTimeMillis());
+
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, grayscaleImage);
             } else {
@@ -550,6 +561,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
+            inspector.addAttribute(ROUND_TRIP_TIME_KEY, functionRunTime + (long) inspector.getAttribute(IMAGE_ACCESS_LATENCY_KEY));
             inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
             inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
@@ -561,6 +573,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
         return inspector.finish();
     }
+
 
 
     /***
@@ -683,11 +696,12 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
      *  @return A response object.
      */
     private HashMap<String, Object> imageTransform(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+        final long functionStartTime = System.currentTimeMillis();
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
         inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
+        isColdStart = false;
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "target_format");
         if (validateMessage != null) {
@@ -697,12 +711,11 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
         }
 
         try {
-            // Extract input parameter
+            // Extract input parameters
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final String targetFormat = (String) request.get("target_format");
             final String outputFileName = "transformed_" + fileName;
-
 
             final long processingStartTime = System.currentTimeMillis();
 
@@ -723,11 +736,16 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
                 }
             }
 
-
-            // Populate response attributes
+            // Add details to the response
+            inspector.addAttribute("message", "Image transformed successfully.");
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("target_format", targetFormat);
+            inspector.addAttribute(LANGUAGE_KEY, "Java");
+            inspector.addAttribute(VERSION_KEY, 0.5);
+            inspector.addAttribute(START_TIME_KEY, functionStartTime);
+            inspector.addAttribute(END_TIME_KEY, System.currentTimeMillis());
+
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, transformedImage);
             } else {
@@ -736,9 +754,9 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
             }
 
             final long functionRunTime = System.currentTimeMillis() - processingStartTime;
+            inspector.addAttribute(ROUND_TRIP_TIME_KEY, functionRunTime + (long) inspector.getAttribute(IMAGE_ACCESS_LATENCY_KEY));
             inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
             inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
-
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -748,6 +766,7 @@ public class ImageBatchProcessing implements RequestHandler<HashMap<String, Obje
 
         return inspector.finish();
     }
+
 
 
 }
