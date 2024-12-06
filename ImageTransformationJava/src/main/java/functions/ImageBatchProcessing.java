@@ -1,8 +1,9 @@
-package lambda;
+package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import saaf.Inspector;
+import utils.Constants;
 
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
@@ -14,7 +15,7 @@ import java.io.*;
 import java.util.*;
 import java.util.List;
 
-import static lambda.Constants.*;
+import static utils.Constants.*;
 
 
 public class ImageBatchProcessing implements RequestHandler<HashMap<String, Object>, HashMap<String, Object>> {

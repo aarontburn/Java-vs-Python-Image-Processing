@@ -1,4 +1,4 @@
-package lambda;
+package utils;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
