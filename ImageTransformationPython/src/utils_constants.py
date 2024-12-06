@@ -1,3 +1,7 @@
+"""
+This file holds common constants, such as dictionary keys.
+"""
+
 # Event and response keys
 IMAGE_FILE_KEY: str = 'image_file'
 ERROR_KEY: str = 'error'

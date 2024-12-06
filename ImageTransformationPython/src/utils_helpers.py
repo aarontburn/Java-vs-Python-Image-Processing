@@ -1,13 +1,17 @@
+"""
+This file contains helper methods that are used by multiple functions.
+"""
+
 from time import time
 import boto3
 from io import BytesIO
 from PIL.Image import Image as ImageType
 from PIL import Image
-import constants
-from custom_types import AWSRequestObject, AWSFunctionOutput
+import utils_constants as constants
+from utils_custom_types import AWSRequestObject, AWSFunctionOutput
 
 
-def validate_event(event: AWSRequestObject, *keys: tuple[str]) -> None | str:
+def validate_event(event: AWSRequestObject, *keys: str) -> None | str:
     """
     Validates an event dictionary. If the event is valid, returns None.
     Otherwise, return an error string containing what keys are missing.
@@ -22,10 +26,10 @@ def validate_event(event: AWSRequestObject, *keys: tuple[str]) -> None | str:
     return "Missing request parameters: " + out[:-2]
 
 
-def estimate_cost(run_time: int) -> float:
-    memory_size_gb: float = 0.512; # Lambda memory size in GB
-    price_per_gb_second: float = 0.00001667; # Pricing for Lambda
-    return (run_time / 1000.0) * memory_size_gb * price_per_gb_second;
+def estimate_cost(run_time: float) -> float:
+    memory_size_gb: float = 0.512  # Lambda memory size in GB
+    price_per_gb_second: float = 0.00001667  # Pricing for Lambda
+    return (run_time / 1000.0) * memory_size_gb * price_per_gb_second
 
 
 def get_image_from_s3_and_record_time(bucket_name: str,
@@ -35,14 +39,14 @@ def get_image_from_s3_and_record_time(bucket_name: str,
     """
     Retrieves an image from S3 from a provided bucket name and file name.
     """
-    s3_start_time: float = time.time()
-    
+    s3_start_time: float = time()
+
     s3 = boto3.resource('s3', region_name)
     obj = s3.Bucket(bucket_name).Object(file_name)
     file_stream: BytesIO = obj.get()["Body"]
     image: ImageType = Image.open(file_stream)
-    
-    output_dict[constants.IMAGE_ACCESS_LATENCY_KEY] = time.time() - s3_start_time
+
+    output_dict[constants.IMAGE_ACCESS_LATENCY_KEY] = time() - s3_start_time
     return image
 
 

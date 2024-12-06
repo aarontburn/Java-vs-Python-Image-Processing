@@ -1,18 +1,22 @@
-from ImageTransformationPython.src.custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType
-from constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, IMAGE_URL_EXPIRATION_SECONDS
-from helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, \
+    IMAGE_URL_EXPIRATION_SECONDS
+from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
 from PIL import ImageEnhance
 
 BRIGHTNESS_KEY: str = 'brightness_delta'
 BRIGHTNESS_BOUNDS: tuple[int, int] = (0, 100)  # I found that 100 is the maximum value before errors happen.
 
-def handle_request(output_dict: AWSFunctionOutput,
-                   event: AWSRequestObject,
+
+def handle_request(event: AWSRequestObject,
                    context: AWSContextObject = None,
-                   batch_image: ImageType = None) -> None:
+                   batch_image: ImageType = None) -> AWSFunctionOutput:
     """
     Function #5: Image brightness modification
     """
+
+    output_dict: AWSFunctionOutput = {}
+
     is_batch: bool = batch_image is not None
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, BRIGHTNESS_KEY)
@@ -33,8 +37,9 @@ def handle_request(output_dict: AWSFunctionOutput,
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
         output_file_name: str = "brightness_" + file_name
-        
-        img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name, output_dict)
+
+        img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name,
+                                                                                        output_dict)
         modified_img: ImageType = ImageEnhance.Brightness(img).enhance(brightness_delta)
 
         if not is_batch:
@@ -43,12 +48,13 @@ def handle_request(output_dict: AWSFunctionOutput,
                 raise RuntimeError("Could not write image to S3.")
 
         output_dict["args"] = {BRIGHTNESS_KEY: event[BRIGHTNESS_KEY]}
-        
+
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = modified_img
         else:
             output_dict[IMAGE_URL_KEY] = get_downloadable_image_url(bucket_name, output_file_name)
             output_dict[IMAGE_URL_EXPIRES_IN_KEY] = IMAGE_URL_EXPIRATION_SECONDS
 
+        return output_dict
     except Exception as e:
         return {ERROR_KEY: str(e)}

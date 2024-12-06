@@ -1,15 +1,19 @@
-from custom_types import AWSContextObject, AWSFunctionOutput, AWSRequestObject, AWSFunction
-import helpers
+"""
+Main entry point.
+"""
+
+from utils_custom_types import AWSContextObject, AWSFunctionOutput, AWSRequestObject, AWSFunction
+import utils_constants as constants
+import utils_helpers as helpers
 from time import time
 import os
-import ImageTransformationPython.src.constants as constants
-from functions.func_1_image_details import handle_request as f1
-from functions.func_2_image_rotate import handle_request as f2
-from functions.func_3_image_resize import handle_request as f3
-from functions.func_4_image_grayscale import handle_request as f4
-from functions.func_5_image_brightness import handle_request as f5
-from functions.func_6_image_transform import handle_request as f6
-from functions.batch_image_processing import handle_request as batch
+from func_1_image_details import handle_request as f1
+from func_2_image_rotate import handle_request as f2
+from func_3_image_resize import handle_request as f3
+from func_4_image_grayscale import handle_request as f4
+from func_5_image_brightness import handle_request as f5
+from func_6_image_transform import handle_request as f6
+from batch_image_processing import handle_request as batch
 
 
 def image_details(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
@@ -39,19 +43,20 @@ def image_transform(event: AWSRequestObject, context: AWSContextObject) -> AWSFu
 def image_batch(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
     return _handle_call(event, context, batch)
 
+
 _cold_start: bool = True
 
-def _handle_call(event: AWSRequestObject, 
+
+def _handle_call(event: AWSRequestObject,
                  context: AWSContextObject,
                  function: AWSFunction) -> AWSFunctionOutput:
-    global _cold_start; 
-    local_cold_start: bool = _cold_start; 
+
+    global _cold_start
+    local_cold_start: bool = _cold_start
     _cold_start = False
 
-    output_dict: AWSFunctionOutput = {}
-    
     function_start_time: float = time()
-    function(event, context, output_dict)
+    output_dict: AWSFunctionOutput = function(event, context)
     function_run_time: float = time() - function_start_time
 
     # Attach common metrics
@@ -60,6 +65,6 @@ def _handle_call(event: AWSRequestObject,
     output_dict[constants.FUNCTION_RUN_TIME_KEY] = function_run_time
     output_dict[constants.ESTIMATED_COST_KEY] = helpers.estimate_cost(function_run_time)
     output_dict["language"] = "Python"
-    output_dict["version"] = 0.5 # ?
+    output_dict["version"] = 0.5  # ?
 
     return output_dict

@@ -1,14 +1,14 @@
-from custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, AWSFunction
-from constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_EXPIRATION_SECONDS, IMAGE_URL_KEY
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, AWSFunction
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_EXPIRATION_SECONDS, \
+    IMAGE_URL_KEY
+from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
 from typing import Any
-from helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
-from functions.func_1_image_details import handle_request as f1
-from functions.func_2_image_rotate import handle_request as f2
-from functions.func_3_image_resize import handle_request as f3
-from functions.func_4_image_grayscale import handle_request as f4
-from functions.func_5_image_brightness import handle_request as f5
-from functions.func_6_image_transform import handle_request as f6
-
+from func_1_image_details import handle_request as f1
+from func_2_image_rotate import handle_request as f2
+from func_3_image_resize import handle_request as f3
+from func_4_image_grayscale import handle_request as f4
+from func_5_image_brightness import handle_request as f5
+from func_6_image_transform import handle_request as f6
 
 OPERATIONS_KEY: str = 'operations'
 FUNCTIONS: dict[str, AWSFunction] = {
@@ -20,10 +20,10 @@ FUNCTIONS: dict[str, AWSFunction] = {
     "transform": f6
 }
 
-def handle_request(output_dict: AWSFunctionOutput,
-                   event: AWSRequestObject, 
-                   context: AWSContextObject = None) -> None:
-    
+
+def handle_request(event: AWSRequestObject,
+                   context: AWSContextObject = None) -> AWSFunctionOutput:
+    output_dict: AWSFunctionOutput = {}
 
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY, OPERATIONS_KEY)
     if validate_message:
@@ -70,19 +70,18 @@ def handle_request(output_dict: AWSFunctionOutput,
         if not successful_write_to_s3:
             raise RuntimeError("Could not write image to S3.")
 
-        
-        output_dict ['operation_outputs'] = operation_outputs
-        output_dict [IMAGE_URL_KEY] = get_downloadable_image_url(bucket_name, output_file_name)
-        output_dict [IMAGE_URL_EXPIRATION_SECONDS] = IMAGE_URL_EXPIRATION_SECONDS
-        
+        output_dict['operation_outputs'] = operation_outputs
+        output_dict[IMAGE_URL_KEY] = get_downloadable_image_url(bucket_name, output_file_name)
+        output_dict[IMAGE_URL_EXPIRATION_SECONDS] = IMAGE_URL_EXPIRATION_SECONDS
+
     except Exception as e:
         return {ERROR_KEY: str(e)}
 
+    return output_dict
 
-def safe_list_access(l: list, index: int, fallback=None) -> Any:
+
+def safe_list_access(list_to_access: list, index: int, fallback=None) -> Any:
     try:
-        return l[index]
+        return list_to_access[index]
     except Exception:
         return fallback
-
-

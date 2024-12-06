@@ -49,6 +49,7 @@ async function testFunction(functionUrl, requestBody) {
         const response = await callFunction(functionUrl, requestBody)
         if (response["cold_start"] !== undefined) {
             console.log(`PASS: ${getFunctionName(functionUrl)}`)
+            console.log(response)
             return true
         }
 
