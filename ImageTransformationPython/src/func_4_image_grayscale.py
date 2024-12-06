@@ -1,4 +1,4 @@
-from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
 from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, \
     IMAGE_URL_EXPIRATION_SECONDS
 from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
@@ -6,7 +6,7 @@ from utils_helpers import get_image_from_s3_and_record_time, validate_event, sav
 
 def handle_request(event: AWSRequestObject,
                    context: AWSContextObject = None,
-                   batch_image: ImageType = None) -> AWSFunctionOutput:
+                   batch_image: OptionalImage = None) -> AWSFunctionOutput:
     """
     Function 4: Image Grayscale Conversion
     """
