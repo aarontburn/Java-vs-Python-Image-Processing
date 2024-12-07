@@ -2,7 +2,6 @@ package lambda;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import functions.*;
-import utils.Constants;
 import utils.Constants.ImageProcessFunction;
 
 import java.util.HashMap;
