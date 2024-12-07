@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
+import java.util.Map;
 
 import static utils.Constants.*;
 
@@ -35,13 +36,10 @@ public class F6ImageTransform {
      *  @param context  The AWS Lambda Context
      *  @return A response object.
      */
-    private static HashMap<String, Object> imageTransform(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
-        final long functionStartTime = System.currentTimeMillis();
+    public static HashMap<String, Object> imageTransform(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
-        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false;
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "target_format");
         if (validateMessage != null) {
@@ -57,7 +55,6 @@ public class F6ImageTransform {
             final String targetFormat = (String) request.get("target_format");
             final String outputFileName = "transformed_" + fileName;
 
-            final long processingStartTime = System.currentTimeMillis();
 
             final BufferedImage originalImage = ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
 
@@ -76,15 +73,10 @@ public class F6ImageTransform {
                 }
             }
 
-            // Add details to the response
-            inspector.addAttribute("message", "Image transformed successfully.");
+            inspector.addAttribute(SUCCESS_KEY, "Successfully transformed image.");
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("target_format", targetFormat);
-            inspector.addAttribute(LANGUAGE_KEY, "Java");
-            inspector.addAttribute(VERSION_KEY, 0.5);
-            inspector.addAttribute(START_TIME_KEY, functionStartTime);
-            inspector.addAttribute(END_TIME_KEY, System.currentTimeMillis());
 
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, transformedImage);
@@ -93,10 +85,6 @@ public class F6ImageTransform {
                 inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
-            final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute(ROUND_TRIP_TIME_KEY, functionRunTime + (long) inspector.getAttribute(IMAGE_ACCESS_LATENCY_KEY));
-            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
-            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -106,4 +94,5 @@ public class F6ImageTransform {
 
         return inspector.finish();
     }
+
 }

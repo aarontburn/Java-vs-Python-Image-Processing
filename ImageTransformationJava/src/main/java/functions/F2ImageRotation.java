@@ -5,6 +5,7 @@ import saaf.Inspector;
 import utils.Constants;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 
@@ -32,12 +33,10 @@ public class F2ImageRotation {
      *  @param context  The AWS Lambda Context
      *  @return A response object.
      */
-    private static HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    public static HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
-        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "rotation_angle");
         if (validateMessage != null) {
@@ -53,7 +52,6 @@ public class F2ImageRotation {
             final Integer rotationAngle = (Integer) request.get("rotation_angle");
             final String outputFileName = "rotated_" + fileName;
 
-            final long processingStartTime = System.currentTimeMillis();
 
             final BufferedImage originalImage = isBatch ? image : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
             if (originalImage == null) {
@@ -75,8 +73,8 @@ public class F2ImageRotation {
                 }
             }
 
-
             // Populate response attributes
+            inspector.addAttribute(SUCCESS_KEY, "Successfully rotated image.");
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("rotated_width", rotatedImage.getWidth());
@@ -90,9 +88,6 @@ public class F2ImageRotation {
                 inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
-            final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
-            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -101,6 +96,39 @@ public class F2ImageRotation {
         }
 
         return inspector.finish();
+    }
+
+    /***
+     *  Helper method for image rotation.
+     *
+     *  @param image            The image to rotate.
+     *  @param rotationAngle    The rotation angle.
+     *  @return The rotated angle.
+     */
+    private static BufferedImage rotateImage(final BufferedImage image, final int rotationAngle) {
+        final int width = image.getWidth();
+        final int height = image.getHeight();
+
+        // Create a new BufferedImage with appropriate dimensions and type
+        final BufferedImage rotatedImage = new BufferedImage((rotationAngle == 90 || rotationAngle == 270) ? height : width, (rotationAngle == 90 || rotationAngle == 270) ? width : height, BufferedImage.TYPE_INT_ARGB);
+
+        final Graphics2D graphics = rotatedImage.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+        // Perform rotation with proper translation
+        if (rotationAngle == 90) {
+            graphics.translate(height, 0);
+        } else if (rotationAngle == 180) {
+            graphics.translate(width, height);
+        } else if (rotationAngle == 270) {
+            graphics.translate(0, width);
+        }
+
+        graphics.rotate(Math.toRadians(rotationAngle));
+        graphics.drawImage(image, 0, 0, null);
+        graphics.dispose();
+
+        return rotatedImage;
     }
 
 }

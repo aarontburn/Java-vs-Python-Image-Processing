@@ -5,6 +5,7 @@ import saaf.Inspector;
 import utils.Constants;
 
 import javax.imageio.ImageIO;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -33,13 +34,11 @@ public class F1ImageDetails {
      *  @param context  The AWS Lambda Context.
      *  @return A response object.
      */
-    private static HashMap<String, Object> imageDetails(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    public static HashMap<String, Object> imageDetails(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
         Inspector inspector = new Inspector();
-        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
@@ -47,8 +46,6 @@ public class F1ImageDetails {
             inspector.addAttribute(ERROR_KEY, validateMessage);
             return inspector.finish();
         }
-
-        final long processingStartTime = System.currentTimeMillis();
 
 
         try {
@@ -58,7 +55,7 @@ public class F1ImageDetails {
             final InputStream objectData = Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             final BufferedImage imageObject = isBatch ? image : ImageIO.read(objectData);
 
-            inspector.addAttribute("region", System.getenv().getOrDefault("AWS_REGION", "NO_REGION_DATA"));
+            inspector.addAttribute(SUCCESS_KEY, "Successfully retrieved image details.");
             inspector.addAttribute("width", imageObject.getWidth());
             inspector.addAttribute("height", imageObject.getHeight());
             inspector.addAttribute("mode", getColorType(imageObject.getColorModel().getColorSpace().getType()));
@@ -66,9 +63,6 @@ public class F1ImageDetails {
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, imageObject);
             }
-            final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
-            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -77,6 +71,33 @@ public class F1ImageDetails {
         }
 
         return inspector.finish();
+    }
+
+    private static String getColorType(final int type) {
+        switch (type) {
+            case ColorSpace.TYPE_RGB:
+                return "RGB";
+            case ColorSpace.TYPE_GRAY:
+                return "L";
+            case ColorSpace.TYPE_CMYK:
+                return "CMYK";
+            case ColorSpace.TYPE_YCbCr:
+                return "YCbCr";
+            case ColorSpace.TYPE_CMY:
+                return "CMY";
+            case ColorSpace.TYPE_HLS:
+                return "HLS";
+            case ColorSpace.TYPE_HSV:
+                return "HSV";
+            case ColorSpace.TYPE_Lab:
+                return "LAB";
+            case ColorSpace.TYPE_Luv:
+                return "Luv";
+            case ColorSpace.TYPE_XYZ:
+                return "XYZ";
+            default:
+                return "Unknown";
+        }
     }
 
 }

@@ -1,25 +1,17 @@
 package saaf;
 
-import saaf.Response;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * SAAF
@@ -461,19 +453,6 @@ public class Inspector {
         attributes.put(key, currentTime - timeSince);
     }
 
-    /**
-     * Add all attributes of a response object to FaaS Inspector.
-     *
-     * @param response The response object to consume.
-     */
-    public void consumeResponse(Response response) {
-        Map<String, Object> responseMap = beanProperties(response);
-        if (responseMap == null) {
-            attributes.put("SAAFConsumeReponseError", "There was an error consuming the response object. See logs for details." + "Response object may have fields that were null or could not be cast.");
-            return;
-        }
-        responseMap.keySet().forEach((s) -> attributes.put(s, responseMap.get(s)));
-    }
 
     /**
      * Finalize the Inspector. Calculator the total runtime and return the HashMap
@@ -485,17 +464,6 @@ public class Inspector {
         this.addTimeStamp("runtime");
         attributes.put("endTime", System.currentTimeMillis());
         return attributes;
-    }
-
-    /**
-     * Finalize the Inspector. Calculator the total runtime and return the HashMap
-     * object containing all attributes collected and onsume a response object.
-     *
-     * @return Attributes collected by the Inspector.
-     */
-    public HashMap<String, Object> finish(Response response) {
-        consumeResponse(response);
-        return finish();
     }
 
     /**
@@ -553,33 +521,4 @@ public class Inspector {
         return "ERROR";
     }
 
-    /**
-     * Convert an Object into a Map using getBeanInfo.
-     *
-     * @param bean The object to collect methods from.
-     * @return A HashMap representation of the object.
-     * @author https://bit.ly/2ZGg4uW
-     */
-    private static Map<String, Object> beanProperties(Object bean) {
-        try {
-            return Arrays.stream(Introspector.getBeanInfo(bean.getClass(), Object.class).getPropertyDescriptors())
-                    // filter out properties with setters only
-                    .filter(pd -> Objects.nonNull(pd.getReadMethod())).collect(Collectors.toMap(
-                            // bean property name
-                            PropertyDescriptor::getName, pd -> { // invoke method to get value
-                                try {
-                                    return pd.getReadMethod().invoke(bean);
-                                } catch (IllegalAccessException | IllegalArgumentException |
-                                         InvocationTargetException e) {
-                                    // replace this with better error handling
-                                    e.printStackTrace();
-                                    return null;
-                                }
-                            }));
-        } catch (Exception e) {
-            // replace this with better error handling
-            e.printStackTrace();
-            return null;
-        }
-    }
 }

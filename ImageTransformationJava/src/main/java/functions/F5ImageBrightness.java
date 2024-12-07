@@ -45,13 +45,10 @@ public class F5ImageBrightness {
      *  @param context  The AWS Lambda Context
      *  @return A response object.
      */
-    private static HashMap<String, Object> imageBrightness(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
+    public static HashMap<String, Object> imageBrightness(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
-        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
-
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "brightness_delta");
         if (validateMessage != null) {
@@ -68,7 +65,6 @@ public class F5ImageBrightness {
             final Integer brightnessDelta = (Integer) request.get("brightness_delta");
             final String outputFileName = "brightness_" + fileName;
 
-            final long processingStartTime = System.currentTimeMillis();
 
             // Validate brightness_delta
             if (brightnessDelta < MIN_BRIGHTNESS || brightnessDelta > MAX_BRIGHTNESS) {
@@ -93,6 +89,7 @@ public class F5ImageBrightness {
             }
 
             // Populate response attributes
+            inspector.addAttribute(SUCCESS_KEY, "Successfully changed image brightness.");
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("brightness_delta", brightnessDelta);
@@ -103,10 +100,6 @@ public class F5ImageBrightness {
                 inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
                 inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
-
-            final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
-            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (Exception e) {
             e.printStackTrace();

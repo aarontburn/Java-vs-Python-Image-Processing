@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,18 +34,11 @@ public class Constants {
     public static final String ROUND_TRIP_TIME_KEY = "round_trip_time";
     public static final String START_TIME_KEY = "start_time";
     public static final String END_TIME_KEY = "end_time";
+    public static final String SUCCESS_KEY = "success";
 
     public static final int IMAGE_URL_EXPIRATION_SECONDS = 3600;
 
 
-
-    public static HashMap<String, Object> hashmapFromArray(final Object[][] inputArr) {
-        final HashMap<String, Object> output = new HashMap<>();
-        for (final Object[] arr : inputArr) {
-            output.put((String) arr[0], arr[1]);
-        }
-        return output;
-    }
 
     public static boolean saveImageToS3(
             final String bucketName,
@@ -112,38 +106,21 @@ public class Constants {
         return (runTime / 1000.0) * memorySizeGB * pricePerGBSecond;
     }
 
-    public static String getColorType(final int type) {
-        switch (type) {
-            case ColorSpace.TYPE_RGB:
-                return "RGB";
-            case ColorSpace.TYPE_GRAY:
-                return "L";
-            case ColorSpace.TYPE_CMYK:
-                return "CMYK";
-            case ColorSpace.TYPE_YCbCr:
-                return "YCbCr";
-            case ColorSpace.TYPE_CMY:
-                return "CMY";
-            case ColorSpace.TYPE_HLS:
-                return "HLS";
-            case ColorSpace.TYPE_HSV:
-                return "HSV";
-            case ColorSpace.TYPE_Lab:
-                return "LAB";
-            case ColorSpace.TYPE_Luv:
-                return "Luv";
-            case ColorSpace.TYPE_XYZ:
-                return "XYZ";
-            default:
-                return "Unknown";
-        }
+
+
+
+    @FunctionalInterface
+    public interface ImageBatchFunction {
+        HashMap<String, Object> process(
+                final BufferedImage image,
+                final HashMap<String, Object> request,
+                final Context context);
     }
 
 
     @FunctionalInterface
     public interface ImageProcessFunction {
-        Map<String, Object> Process(
-                final BufferedImage image,
+        HashMap<String, Object> process(
                 final HashMap<String, Object> request,
                 final Context context);
     }

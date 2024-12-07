@@ -34,14 +34,10 @@ public class F3ImageResize {
      *  @param context  The AWS Lambda Context
      *  @return A response object.
      */
-    private static HashMap<String, Object> imageResize(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
-        final long functionStartTime = System.currentTimeMillis();
-
+    public static HashMap<String, Object> imageResize(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
         Inspector inspector = new Inspector();
-        inspector.addAttribute(COLD_START_KEY, isColdStart ? 1 : 0);
-        isColdStart = false; // Reset the cold start flag for subsequent invocations
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "target_width", "target_height");
 
@@ -58,9 +54,6 @@ public class F3ImageResize {
             final Integer targetWidth = (Integer) request.get("target_width");
             final Integer targetHeight = (Integer) request.get("target_height");
             final String outputFileName = "resized_" + fileName;
-
-
-            final long processingStartTime = System.currentTimeMillis();
 
 
             if (targetWidth <= 0 || targetHeight <= 0) {
@@ -83,15 +76,11 @@ public class F3ImageResize {
 
 
             // Add resized image details to the response
-            inspector.addAttribute("message", "Image resized successfully.");
+            inspector.addAttribute(SUCCESS_KEY, "Successfully resized image.");
             inspector.addAttribute("original_width", originalImage.getWidth());
             inspector.addAttribute("original_height", originalImage.getHeight());
             inspector.addAttribute("target_width", targetWidth);
             inspector.addAttribute("target_height", targetHeight);
-            inspector.addAttribute(LANGUAGE_KEY, "Java");
-            inspector.addAttribute(VERSION_KEY, 0.5);
-            inspector.addAttribute(START_TIME_KEY, functionStartTime);
-            inspector.addAttribute(END_TIME_KEY, System.currentTimeMillis());
 
             if (isBatch) {
                 inspector.addAttribute(IMAGE_FILE_KEY, outputImage);
@@ -100,10 +89,6 @@ public class F3ImageResize {
                 inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
             }
 
-            final long functionRunTime = System.currentTimeMillis() - processingStartTime;
-            inspector.addAttribute(ROUND_TRIP_TIME_KEY, functionRunTime + (long) inspector.getAttribute(IMAGE_ACCESS_LATENCY_KEY));
-            inspector.addAttribute(FUNCTION_RUN_TIME_KEY, functionRunTime);
-            inspector.addAttribute(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
 
         } catch (Exception e) {
             e.printStackTrace();
