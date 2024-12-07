@@ -41,7 +41,7 @@ public class F6ImageTransform {
 
         Inspector inspector = new Inspector();
 
-        final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "target_format");
+        final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
             inspector = new Inspector();
             inspector.addAttribute(ERROR_KEY, validateMessage);
@@ -52,7 +52,7 @@ public class F6ImageTransform {
             // Extract input parameters
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
-            final String targetFormat = (String) request.get("target_format");
+            final String targetFormat = ((String) request.getOrDefault("target_format", "JPEG")).toUpperCase();
             final String outputFileName = "transformed_" + fileName;
 
 
