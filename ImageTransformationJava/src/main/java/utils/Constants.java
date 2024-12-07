@@ -25,16 +25,17 @@ public class Constants {
     public static final String FILE_NAME_KEY = "filename";
     public static final String IMAGE_URL_KEY = "url";
     public static final String IMAGE_URL_EXPIRES_IN = "url_expires_in_seconds";
-    public static final String IMAGE_ACCESS_LATENCY_KEY = "network_latency_ms";
-    public static final String FUNCTION_RUN_TIME_KEY = "function_runtime_ms";
-    public static final String ESTIMATED_COST_KEY = "estimated_cost_usd";
-    public static final String COLD_START_KEY = "cold_start";
+    public static final String SUCCESS_KEY = "success";
+
     public static final String LANGUAGE_KEY = "language";
-    public static final String VERSION_KEY = "version";
-    public static final String ROUND_TRIP_TIME_KEY = "round_trip_time";
+    public static final String NETWORK_LATENCY_KEY = "network_latency_ms";
+    public static final String FUNCTION_RUN_TIME_KEY = "function_runtime_ms";
+    public static final String ESTIMATED_COST_KEY = "cost_usd";
+    public static final String COLD_START_KEY = "cold_start";
     public static final String START_TIME_KEY = "start_time";
     public static final String END_TIME_KEY = "end_time";
-    public static final String SUCCESS_KEY = "success";
+    public static final String PROCESSING_THROUGHPUT_KEY = "processing_throughput";
+    public static final String MEMORY_USED_MB_KEY = "memory_used_mb";
 
     public static final int IMAGE_URL_EXPIRATION_SECONDS = 3600;
 
@@ -88,7 +89,7 @@ public class Constants {
         final S3Object s3Object = AmazonS3ClientBuilder.defaultClient().getObject(bucketName, fileName);
         final InputStream objectData = s3Object.getObjectContent();
 
-        inspector.addAttribute(IMAGE_ACCESS_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
+        inspector.addAttribute(NETWORK_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
         return objectData;
     }
 

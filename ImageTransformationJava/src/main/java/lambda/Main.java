@@ -2,44 +2,33 @@ package lambda;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import functions.*;
+import saaf.Inspector;
 import utils.Constants.ImageProcessFunction;
 
 import java.util.HashMap;
 
-import static utils.Constants.*;
-
 public class Main {
-
-    private boolean coldStart = true;
 
     private HashMap<String, Object> handleCall(final HashMap<String, Object> input,
                                                final Context context,
                                                final ImageProcessFunction function) {
 
-        final boolean localColdStart = this.coldStart;
-        this.coldStart = false;
-
-
-        final long processStartTime = System.currentTimeMillis();
+        // Record function runtime
+        final long roundTripStart = System.currentTimeMillis();
         final HashMap<String, Object> functionOutput = function.process(input, context);
-        final long processEndTime = System.currentTimeMillis();
-        final long functionRunTime = processEndTime - processStartTime;
 
+        // Use Inspector for metrics collection
+        Inspector inspector = new Inspector();
+        inspector.inspectMetrics(false, roundTripStart);
 
-        functionOutput.put(START_TIME_KEY, processStartTime);
-        functionOutput.put(END_TIME_KEY, processEndTime);
-        functionOutput.put(FUNCTION_RUN_TIME_KEY, functionRunTime);
-        functionOutput.put(ROUND_TRIP_TIME_KEY, functionRunTime + (long) functionOutput.get(IMAGE_ACCESS_LATENCY_KEY));
-        functionOutput.put(COLD_START_KEY, localColdStart ? 1 : 0);
-        functionOutput.put(ESTIMATED_COST_KEY, estimateCost(functionRunTime));
-
-        functionOutput.put(LANGUAGE_KEY, "Java");
-        functionOutput.put(VERSION_KEY, 0.5);
-        functionOutput.put("region", System.getenv().getOrDefault("AWS_REGION", "NO_REGION_DATA"));
-
+        // Merge Inspector metrics into the function output
+        functionOutput.putAll(inspector.finish());
 
         return functionOutput;
     }
+
+
+
 
 
     public HashMap<String, Object> imageDetails(final HashMap<String, Object> input, final Context context) {
