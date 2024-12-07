@@ -13,6 +13,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.UUID;
 
+import utils.Constants;
+
 /**
  * SAAF
  *
@@ -44,6 +46,65 @@ public class Inspector {
         attributes.put("lang", "java");
         attributes.put("startTime", startTime);
     }
+
+/**
+ * Collects and records only the essential performance metrics during the execution of a function.
+ * This includes invocation time, cold start status, memory usage, network latency, round trip time,
+ * function runtime, throughput, and cost.
+ *
+ * @param isBatch        Indicates whether the function is part of a batch processing operation.
+ *                       If {@code true}, round trip time calculation is skipped.
+ * @param roundTripStart The timestamp (in milliseconds) when the function's execution started.
+ *                       Used to calculate the total round trip time for non-batch operations.
+ */
+public void inspectMetrics(boolean isBatch, long roundTripStart) {
+    // Record invocation start time
+    this.addTimeStamp("invocation_start_time_ms");
+
+    // Inspect container and determine cold start
+    this.inspectContainer();
+    boolean isColdStart = (Integer) this.getAttribute("newcontainer") == 1;
+    this.addAttribute("cold_start", isColdStart ? 1 : 0);
+
+    // Inspect memory usage
+    this.inspectMemory();
+    int totalMemory = Integer.parseInt((String) this.getAttribute("totalMemory"));
+    int freeMemory = Integer.parseInt((String) this.getAttribute("freeMemory"));
+    int memoryUsedMb = (totalMemory - freeMemory) / 1024;
+    this.addAttribute("memory_used_mb", memoryUsedMb);
+
+    // Record network latency (already handled by Constants)
+    Long networkLatency = (Long) this.getAttribute(Constants.IMAGE_ACCESS_LATENCY_KEY);
+    if (networkLatency != null) {
+        this.addAttribute("network_latency_ms", networkLatency);
+    }
+
+    // Round trip time (only for non-batch requests)
+    if (!isBatch) {
+        long roundTripEnd = System.currentTimeMillis();
+        this.addAttribute("round_trip_time_ms", roundTripEnd - roundTripStart);
+    }
+
+    // Function runtime
+    this.addTimeStamp("function_runtime_ms");
+    Long functionRuntime = (Long) this.getAttribute("function_runtime_ms");
+
+    // Processing throughput
+    if (functionRuntime != null) {
+        double throughput = functionRuntime > 0 ? 1000.0 / functionRuntime : 0; // Tasks per second
+        this.addAttribute("processing_throughput", throughput);
+    }
+
+    // Cost calculation
+    if (functionRuntime != null) {
+        double cost = Constants.estimateCost(functionRuntime);
+        this.addAttribute("cost_usd", cost);
+    }
+
+    // Record invocation end time
+    this.addTimeStamp("invocation_end_time_ms");
+}
+
 
     /**
      * Collect information about the runtime container.
@@ -461,10 +522,30 @@ public class Inspector {
      * @return Attributes collected by the Inspector.
      */
     public HashMap<String, Object> finish() {
-        this.addTimeStamp("runtime");
-        attributes.put("endTime", System.currentTimeMillis());
-        return attributes;
+        HashMap<String, Object> filteredAttributes = new HashMap<>();
+    
+        // Include only desired metrics
+        String[] desiredKeys = {
+            "invocation_start_time_ms",
+            "invocation_end_time_ms",
+            "round_trip_time_ms",
+            "cold_start",
+            "network_latency_ms",
+            "processing_throughput",
+            "function_runtime_ms",
+            "memory_used_mb",
+            "cost_usd"
+        };
+    
+        for (String key : desiredKeys) {
+            if (attributes.containsKey(key)) {
+                filteredAttributes.put(key, attributes.get(key));
+            }
+        }
+    
+        return filteredAttributes;
     }
+    
 
     /**
      * Read a file and return it as a String.

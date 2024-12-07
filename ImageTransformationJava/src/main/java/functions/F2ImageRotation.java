@@ -9,8 +9,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 
-import static utils.Constants.*;
-
 public class F2ImageRotation {
 
     /***
@@ -35,68 +33,59 @@ public class F2ImageRotation {
      */
     public static HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
-
         Inspector inspector = new Inspector();
-
-        final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "rotation_angle");
-        if (validateMessage != null) {
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, validateMessage);
-            return inspector.finish();
-        }
-
+    
+        long roundTripStart = System.currentTimeMillis();
+    
         try {
-            // Extract input parameters
-            final String bucketName = (String) request.get(BUCKET_KEY);
-            final String fileName = (String) request.get(FILE_NAME_KEY);
+            // Validate request parameters
+            if (!request.containsKey(Constants.BUCKET_KEY) || !request.containsKey(Constants.FILE_NAME_KEY) || !request.containsKey("rotation_angle")) {
+                inspector.addAttribute("Error", "Missing required parameters: bucketName, fileName, or rotation_angle.");
+                return inspector.finish();
+            }
+    
+            final String bucketName = request.get(Constants.BUCKET_KEY).toString();
+            final String fileName = request.get(Constants.FILE_NAME_KEY).toString();
             final Integer rotationAngle = (Integer) request.get("rotation_angle");
             final String outputFileName = "rotated_" + fileName;
-
-
-            final BufferedImage originalImage = isBatch ? image : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
+    
+            // Validate rotation angle
+            if (!(rotationAngle == 90 || rotationAngle == 180 || rotationAngle == 270)) {
+                inspector.addAttribute("Error", "Invalid rotation_angle. Only 90, 180, or 270 degrees are supported.");
+                return inspector.finish();
+            }
+    
+            // Download image
+            final BufferedImage originalImage = isBatch
+                    ? image
+                    : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
+    
             if (originalImage == null) {
                 throw new IllegalArgumentException("Failed to decode image data.");
             }
-
-            // Validate rotation angle
-            if (!(rotationAngle == 90 || rotationAngle == 180 || rotationAngle == 270)) {
-                throw new IllegalArgumentException("Invalid rotation angle. Only 90, 180, or 270 degrees are supported.");
-            }
-
-            // Perform rotation
-            final BufferedImage rotatedImage = rotateImage(originalImage, rotationAngle);
-
+    
+            // Rotate image
+            BufferedImage rotatedImage = rotateImage(originalImage, rotationAngle);
+    
+            // Upload rotated image to S3
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", rotatedImage);
-                if (!successfulWriteToS3) {
-                    throw new RuntimeException("Could not write image to S3");
+                boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, "png", rotatedImage);
+                if (!uploadSuccess) {
+                    throw new RuntimeException("Failed to save rotated image to S3");
                 }
             }
-
-            // Populate response attributes
-            inspector.addAttribute(SUCCESS_KEY, "Successfully rotated image.");
-            inspector.addAttribute("original_width", originalImage.getWidth());
-            inspector.addAttribute("original_height", originalImage.getHeight());
-            inspector.addAttribute("rotated_width", rotatedImage.getWidth());
-            inspector.addAttribute("rotated_height", rotatedImage.getHeight());
-            inspector.addAttribute("rotation_angle", rotationAngle);
-            inspector.addAttribute("rotated_image_key", outputFileName);
-            if (isBatch) {
-                inspector.addAttribute(IMAGE_FILE_KEY, rotatedImage);
-            } else {
-                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
-                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
-            }
-
-
-        } catch (final Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, e.getMessage());
+            inspector.addAttribute("Error", e.getMessage());
         }
-
+    
+        // Collect metrics
+        inspector.inspectMetrics(isBatch, roundTripStart);
+    
+        // Return all metrics
         return inspector.finish();
     }
+    
 
     /***
      *  Helper method for image rotation.
