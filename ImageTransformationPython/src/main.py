@@ -45,7 +45,7 @@ def image_batch(event: AWSRequestObject, context: AWSContextObject) -> AWSFuncti
 
 
 _cold_start: bool = True
-# test
+# test 1
 
 def _handle_call(event: AWSRequestObject,
                  context: AWSContextObject,

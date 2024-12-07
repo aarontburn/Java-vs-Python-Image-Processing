@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "python": "node update_python.js"
+    "python": "node update_python.js",
+    "java": "node update_java.js",
+    "updateall": "npm run python && npm run java"
   },
   "author": "",
   "license": "ISC",
