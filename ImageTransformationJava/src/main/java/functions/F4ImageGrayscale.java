@@ -33,62 +33,62 @@ public class F4ImageGrayscale {
      *  @return A response object.
      */
     public static HashMap<String, Object> imageGrayscale(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
-        final long functionStartTime = System.currentTimeMillis();
+        Inspector inspector = new Inspector();
+        long roundTripStart = System.currentTimeMillis();
         final boolean isBatch = image != null;
 
-        Inspector inspector = new Inspector();
-
-        final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
-        if (validateMessage != null) {
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, validateMessage);
-            return inspector.finish();
-        }
-
         try {
+            // Validate request parameters
+            String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
+            if (validateMessage != null) {
+                inspector.addAttribute("Error", validateMessage);
+                return inspector.finish();
+            }
+
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final String outputFileName = "grayscaled_" + fileName;
 
-            final long processingStartTime = System.currentTimeMillis();
-
+            // Download image
             final BufferedImage originalImage = isBatch
                     ? image
                     : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
 
-            // Convert the image to grayscale
-            final BufferedImage grayscaleImage = new BufferedImage(
+            if (originalImage == null) {
+                throw new IllegalArgumentException("Failed to decode image data.");
+            }
+
+            // Convert image to grayscale
+            BufferedImage grayscaleImage = new BufferedImage(
                     originalImage.getWidth(),
                     originalImage.getHeight(),
                     BufferedImage.TYPE_BYTE_GRAY
             );
             grayscaleImage.getGraphics().drawImage(originalImage, 0, 0, null);
 
+            // Upload grayscale image to S3
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", grayscaleImage);
-                if (!successfulWriteToS3) {
-                    throw new RuntimeException("Could not write image to S3");
+                boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, "png", grayscaleImage);
+                if (!uploadSuccess) {
+                    throw new RuntimeException("Failed to save grayscaled image to S3");
                 }
+                inspector.addAttribute("ImageURL", Constants.getDownloadableImageURL(bucketName, outputFileName));
             }
 
-            // Add details to the response
-            inspector.addAttribute(SUCCESS_KEY, "Successfully converted image to grayscale.");
-            inspector.addAttribute("original_width", originalImage.getWidth());
-            inspector.addAttribute("original_height", originalImage.getHeight());
+            // Collect additional metrics
+            inspector.addAttribute("OriginalWidth", originalImage.getWidth());
+            inspector.addAttribute("OriginalHeight", originalImage.getHeight());
+            inspector.addAttribute("Success", "Image successfully converted to grayscale.");
 
-            if (isBatch) {
-                inspector.addAttribute(IMAGE_FILE_KEY, grayscaleImage);
-            } else {
-                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
-                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
-            }
-
-        } catch (final Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, e.getMessage());
+            inspector.addAttribute("Error", e.getMessage());
         }
 
+        // Collect round-trip metrics
+        inspector.inspectMetrics(isBatch, roundTripStart);
+
+        // Return all metrics
         return inspector.finish();
     }
 }
