@@ -50,6 +50,10 @@ public class F5ImageBrightness {
 
         Inspector inspector = new Inspector();
 
+        // Record the round-trip start time
+        final long roundTripStart = System.currentTimeMillis();
+
+
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "brightness_delta");
         if (validateMessage != null) {
             inspector = new Inspector();
@@ -106,6 +110,10 @@ public class F5ImageBrightness {
             inspector = new Inspector();
             inspector.addAttribute(ERROR_KEY, e.getMessage());
         }
+
+        // Collect metrics
+        inspector.inspectMetrics(isBatch, roundTripStart);
+
 
         return inspector.finish();
     }

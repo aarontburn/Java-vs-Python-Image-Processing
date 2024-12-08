@@ -40,6 +40,10 @@ public class F1ImageDetails {
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
         Inspector inspector = new Inspector();
 
+        // Record the round-trip start time
+        final long roundTripStart = System.currentTimeMillis();
+
+
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
             inspector = new Inspector();
@@ -69,6 +73,9 @@ public class F1ImageDetails {
             inspector = new Inspector();
             inspector.addAttribute(ERROR_KEY, e.toString());
         }
+        // Collect metrics
+        inspector.inspectMetrics(isBatch, roundTripStart);
+
 
         return inspector.finish();
     }
