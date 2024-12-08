@@ -24,7 +24,6 @@ public class ImageBatchProcessing {
 
     private static final Map<String, ImageBatchFunction> FUNCTIONS = new HashMap<>();
 
-
     static {
         FUNCTIONS.put("details", F1ImageDetails::imageDetails);
         FUNCTIONS.put("rotate", F2ImageRotation::imageRotate);
@@ -34,20 +33,12 @@ public class ImageBatchProcessing {
         FUNCTIONS.put("transform", F6ImageTransform::imageTransform);
     }
 
-
-    /***
-     *  The function to handle batch requests.
-     *
-     *  @param request The Lambda Function input
-     *  @param context The Lambda execution environment context object.
-     *  @return A HashMap containing request output.
-     */
     public static HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         Inspector inspector = new Inspector();
 
+        // Validate input
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, OPERATIONS_KEY);
         if (validateMessage != null) {
-            inspector = new Inspector();
             inspector.addAttribute(ERROR_KEY, validateMessage);
             return inspector.finish();
         }
@@ -58,15 +49,18 @@ public class ImageBatchProcessing {
             final Object[][] operations = (Object[][]) request.get(OPERATIONS_KEY);
             final String outputFileName = "batch_" + fileName;
 
+            // Track start time and memory usage
+            long batchStartTime = System.currentTimeMillis();
+            inspector.inspectMemory(); // Record initial memory usage
+            long totalNetworkLatency = 0;
 
-            final List<HashMap<String, Object>> operationsOutput = new ArrayList<>();
-
-
+            // Fetch the initial image from S3
             BufferedImage image = ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
             if (image == null) {
                 throw new IllegalArgumentException("Failed to decode image data.");
             }
 
+            // Process all operations
             for (int i = 0; i < operations.length; i++) {
                 final String operationName = (String) operations[i][0];
                 final HashMap<String, Object> operationArgs = (HashMap<String, Object>) operations[i][1];
@@ -80,38 +74,48 @@ public class ImageBatchProcessing {
                     continue;
                 }
 
-                System.out.println("Executing function " + i + ": " + operationName);
+                // Execute the operation
                 final ImageBatchFunction operationFunction = FUNCTIONS.get(operationName);
                 final Map<String, Object> responseObject = operationFunction.process(image, operationArgs, context);
 
-                if (responseObject.containsKey(ERROR_KEY)) {
-                    System.out.println("Pipeline error: Error executing function at index " + i);
-                }
-
+                // Update the image for the next operation
                 image = responseObject.containsKey(IMAGE_FILE_KEY) ? (BufferedImage) responseObject.get(IMAGE_FILE_KEY) : image;
-                final HashMap<String, Object> appendedOutput = new HashMap<>(responseObject);
-                appendedOutput.remove(IMAGE_FILE_KEY);
-                operationsOutput.add(appendedOutput);
+
+                // Track network latency from individual operations (if applicable)
+                totalNetworkLatency += (long) responseObject.getOrDefault("s3_latency", 0);
             }
 
-
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", image);
+            // Save the final processed image to S3
+            boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", image);
             if (!successfulWriteToS3) {
-                throw new RuntimeException("Could not write image to S3");
+                throw new RuntimeException("Failed to save processed image to S3.");
             }
 
-            inspector.addAttribute("operation_outputs", operationsOutput);
-            inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+            // Calculate batch-level metrics
+            long batchEndTime = System.currentTimeMillis();
+            long batchRuntime = batchEndTime - batchStartTime;
+            double batchThroughput = operations.length / (batchRuntime / 1000.0);
+
+            // Add aggregated metrics to the inspector
+            inspector.addAttribute("batch_runtime_ms", batchRuntime);
+            inspector.addAttribute("batch_operations_count", operations.length);
+            inspector.addAttribute("batch_network_latency_ms", totalNetworkLatency);
+            inspector.addAttribute("batch_throughput_ops_per_sec", batchThroughput);
+            inspector.addAttribute("batch_cost_usd", Constants.estimateCost(batchRuntime));
+            inspector.inspectMemory(); // Record final memory usage
+
+            // Add final processed image URL
+            inspector.addAttribute(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
             inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
 
-
-        } catch (final Exception e) {
+        } catch (Exception e) {
+            // Capture and log any errors during processing
             e.printStackTrace();
-            inspector = new Inspector();
             inspector.addAttribute(ERROR_KEY, e.toString());
         }
+
+        // Return only the aggregated metrics for the batch
         return inspector.finish();
     }
-
-
 }
+
