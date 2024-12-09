@@ -1,13 +1,10 @@
 import utils_constants as constants
 import utils_helpers as helpers
-import json
-import logging
 import os
-import subprocess
-import re
 import uuid
-import shlex
 import time
+import utils_constants as Constants
+from utils_helpers import current_time_millis, estimate_cost
 
 #
 # Execute a bash command and get the output.
@@ -40,7 +37,7 @@ class Inspector:
     # __attributes: Used to store information collected by each function.
     # __startTime:  The time the function started running.
     #
-    def __init__(self):
+    def __init__(self, return_only_metrics = False):
         global invocations
         global initialization_time
         invocations += 1
@@ -48,11 +45,11 @@ class Inspector:
         self.__startTime = int(round(time.time() * 1000))
         self.__attributes = {
             "version": 0.7, 
-            "lang": "python", 
             "startTime": self.__startTime,
             "invocations": invocations,
             "initializationTime": initialization_time
         }
+        self.__return_only_metrics = return_only_metrics
 
         self.__cpuPolls = []
         self.__memoryPolls = []
@@ -68,6 +65,10 @@ class Inspector:
         self.__inspectedPlatformDelta = False
         self.__inspectedLinux = False
         self.__inspectedLinuxDelta = False
+        
+        
+        
+        
         
     #
     # Collect information about the runtime container.
@@ -389,23 +390,25 @@ class Inspector:
         # Start time
         self.addAttribute(constants.START_TIME_KEY, start_time_ms)
 
-        # End time
-        end_time_ms = int(round(time.time() * 1000))
-        self.addAttribute(constants.END_TIME_KEY, end_time_ms)
-
-        # Function runtime in ms
-        function_runtime_ms = end_time_ms - start_time_ms
-        self.addAttribute(constants.FUNCTION_RUN_TIME_KEY, function_runtime_ms)
-
+        # Cold start detection
+        self.addAttribute(constants.COLD_START_KEY, 1 if self.getAttribute("newcontainer", False) else 0)
+        
+        # Language
+        self.addAttribute(constants.LANGUAGE_KEY, "Python")
+        
         # Memory usage in MB - Using inspectMemory and directly accessing attributes
         self.inspectMemory()
         memory_used_kb = self.getAttribute('totalMemory') - self.getAttribute('freeMemory')
         memory_used_mb = memory_used_kb // 1024
         self.addAttribute(constants.MEMORY_USED_MB_KEY, memory_used_mb)
-
-
+        
         # Network latency
         # self.addAttribute(constants.NETWORK_LATENCY_KEY, network_latency_ms)
+        
+        # Function runtime in ms
+        function_runtime_ms = end_time_ms - start_time_ms
+        self.addAttribute(constants.FUNCTION_RUN_TIME_KEY, function_runtime_ms)
+
 
         # Processing throughput
         throughput = 1000 / function_runtime_ms if function_runtime_ms > 0 else 0
@@ -415,11 +418,10 @@ class Inspector:
         estimated_cost = helpers.estimate_cost(function_runtime_ms)
         self.addAttribute(constants.ESTIMATED_COST_KEY, estimated_cost)
 
-        # Language
-        self.addAttribute(constants.LANGUAGE_KEY, "Python")
-
-        # Cold start detection
-        self.addAttribute(constants.COLD_START_KEY, 1 if self.getAttribute("newcontainer", False) else 0)
+        
+        # End time
+        end_time_ms = int(round(time.time() * 1000))
+        self.addAttribute(constants.END_TIME_KEY, end_time_ms)
 
         
     #
@@ -488,6 +490,10 @@ class Inspector:
     # @return Attributes collected by the Inspector.
     #
     def finish(self):
+        if not self.__return_only_metrics:
+            return self.__attributes
+            
+        
         # List of desired keys
         desired_keys = [
             constants.ESTIMATED_COST_KEY,

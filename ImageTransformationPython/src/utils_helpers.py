@@ -9,6 +9,7 @@ from PIL.Image import Image as ImageType
 from PIL import Image
 import utils_constants as constants
 from utils_custom_types import AWSRequestObject, AWSFunctionOutput
+from utils_helpers import current_time_millis
 
 
 def validate_event(event: AWSRequestObject, *keys: str) -> None | str:
@@ -39,14 +40,14 @@ def get_image_from_s3_and_record_time(bucket_name: str,
     """
     Retrieves an image from S3 from a provided bucket name and file name.
     """
-    s3_start_time: float = time()
+    s3_start_time: float = current_time_millis()
 
     s3 = boto3.resource('s3', region_name)
     obj = s3.Bucket(bucket_name).Object(file_name)
     file_stream: BytesIO = obj.get()["Body"]
     image: ImageType = Image.open(file_stream)
 
-    output_dict[constants.IMAGE_ACCESS_LATENCY_KEY] = time() - s3_start_time
+    output_dict[constants.NETWORK_LATENCY_KEY] = current_time_millis() - s3_start_time
     return image
 
 
@@ -84,3 +85,7 @@ def get_downloadable_image_url(bucket_name: str, file_name: str) -> str:
         print("Error getting image URL: " + str(e))
 
     return ''
+
+
+def current_time_millis():
+    return int(round(time() * 1000))
