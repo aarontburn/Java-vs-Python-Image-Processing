@@ -3,8 +3,6 @@ import utils_helpers as helpers
 import os
 import uuid
 import time
-import utils_constants as Constants
-from utils_helpers import current_time_millis, estimate_cost
 
 #
 # Execute a bash command and get the output.
@@ -380,7 +378,7 @@ class Inspector:
         self.__inspectedLinux = True
         self.__attributes['linuxVersion'] = runCommand('uname -a').replace('\n', '')
 
-    def inspectMetrics(self, start_time_ms):
+    def inspectMetrics(self, route_trip_start):
         """
         Collect essential metrics for a Lambda function execution.
         
@@ -388,10 +386,11 @@ class Inspector:
         :param network_latency_ms: recorded network latency in milliseconds.
         """
         # Start time
-        self.addAttribute(constants.START_TIME_KEY, start_time_ms)
+        self.addAttribute(constants.START_TIME_KEY, route_trip_start)
 
         # Cold start detection
-        self.addAttribute(constants.COLD_START_KEY, 1 if self.getAttribute("newcontainer", False) else 0)
+        self.inspectContainer()
+        self.addAttribute(constants.COLD_START_KEY, 1 if self.getAttribute("newcontainer") == 1 else 0)
         
         # Language
         self.addAttribute(constants.LANGUAGE_KEY, "Python")
@@ -406,7 +405,9 @@ class Inspector:
         # self.addAttribute(constants.NETWORK_LATENCY_KEY, network_latency_ms)
         
         # Function runtime in ms
-        function_runtime_ms = end_time_ms - start_time_ms
+        end_time_ms = int(round(time.time() * 1000))
+        
+        function_runtime_ms = end_time_ms - route_trip_start
         self.addAttribute(constants.FUNCTION_RUN_TIME_KEY, function_runtime_ms)
 
 
@@ -418,9 +419,7 @@ class Inspector:
         estimated_cost = helpers.estimate_cost(function_runtime_ms)
         self.addAttribute(constants.ESTIMATED_COST_KEY, estimated_cost)
 
-        
         # End time
-        end_time_ms = int(round(time.time() * 1000))
         self.addAttribute(constants.END_TIME_KEY, end_time_ms)
 
         

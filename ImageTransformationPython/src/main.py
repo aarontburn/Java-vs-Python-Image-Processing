@@ -4,7 +4,6 @@ Main entry point.
 
 from utils_custom_types import AWSContextObject, AWSFunctionOutput, AWSRequestObject, AWSFunction
 import utils_constants as constants
-import utils_helpers as helpers
 from func_1_image_details import handle_request as f1
 from func_2_image_rotate import handle_request as f2
 from func_3_image_resize import handle_request as f3
@@ -13,6 +12,7 @@ from func_5_image_brightness import handle_request as f5
 from func_6_image_transform import handle_request as f6
 from batch_image_processing import handle_request as batch
 from SAAF import Inspector
+from time import time
 
 
 def image_details(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
@@ -51,7 +51,7 @@ def _handle_call(event: AWSRequestObject,
 
     return_only_metrics: bool = bool(event[constants.ONLY_METRICS_KEY]) if constants.ONLY_METRICS_KEY in event else False 
 
-    round_trip_start: int = helpers.current_time_millis()
+    round_trip_start: int = int(round(time() * 1000))
 
     function_output: AWSFunctionOutput = function(event, context)
 
