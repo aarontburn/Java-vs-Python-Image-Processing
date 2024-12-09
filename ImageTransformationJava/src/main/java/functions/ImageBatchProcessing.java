@@ -42,7 +42,7 @@ public class ImageBatchProcessing {
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final ArrayList<ArrayList<Object>> operations = (ArrayList<ArrayList<Object>>) request.get(OPERATIONS_KEY);
-            final String outputFileName = "batch_" + fileName;
+            String outputFileName = "batch_" + fileName;
             final List<HashMap<String, Object>> operationsOutput = new ArrayList<>();
 
             // Fetch the initial image from S3
@@ -65,6 +65,7 @@ public class ImageBatchProcessing {
                     continue;
                 }
 
+
                 // Add required params to the operation arguments
                 operationArgs.put(BUCKET_KEY, bucketName);
                 operationArgs.put(FILE_NAME_KEY, fileName);
@@ -76,6 +77,10 @@ public class ImageBatchProcessing {
 
                 if (responseObject.containsKey(ERROR_KEY)) {
                     System.out.println("Pipeline error: Error executing function at index " + i);
+                } else {
+                    if (operationName.equals("transform")) {
+                        outputFileName = "batch_" + fileName.split("\\.")[0] + "." + ((String) operationArgs.get("target_format")).toLowerCase();
+                    }
                 }
 
                 image = responseObject.containsKey(IMAGE_FILE_KEY) ? (BufferedImage) responseObject.get(IMAGE_FILE_KEY) : image;
