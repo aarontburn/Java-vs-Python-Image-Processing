@@ -33,16 +33,14 @@ public class F4ImageGrayscale {
      *  @return A response object.
      */
     public static HashMap<String, Object> imageGrayscale(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
-        Inspector inspector = new Inspector();
-        long roundTripStart = System.currentTimeMillis();
         final boolean isBatch = image != null;
+        final HashMap<String, Object> inspector = new HashMap<>();
 
         try {
             // Validate request parameters
             String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
             if (validateMessage != null) {
-                inspector.addAttribute("Error", validateMessage);
-                return inspector.finish();
+                return Constants.getErrorObject(validateMessage);
             }
 
             final String bucketName = (String) request.get(BUCKET_KEY);
@@ -55,7 +53,7 @@ public class F4ImageGrayscale {
                     : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
 
             if (originalImage == null) {
-                throw new IllegalArgumentException("Failed to decode image data.");
+                return Constants.getErrorObject("Failed to decode image data.");
             }
 
             // Convert image to grayscale
@@ -72,23 +70,19 @@ public class F4ImageGrayscale {
                 if (!uploadSuccess) {
                     throw new RuntimeException("Failed to save grayscaled image to S3");
                 }
-                inspector.addAttribute("ImageURL", Constants.getDownloadableImageURL(bucketName, outputFileName));
+//                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+            } else {
+                inspector.put(IMAGE_FILE_KEY, grayscaleImage);
             }
 
-            // Collect additional metrics
-            inspector.addAttribute("OriginalWidth", originalImage.getWidth());
-            inspector.addAttribute("OriginalHeight", originalImage.getHeight());
-            inspector.addAttribute("Success", "Image successfully converted to grayscale.");
+            inspector.put(SUCCESS_KEY, "Image successfully converted to grayscale.");
 
         } catch (Exception e) {
             e.printStackTrace();
-            inspector.addAttribute("Error", e.getMessage());
+            return Constants.getErrorObject(e.toString());
         }
 
-        // Collect round-trip metrics
-        inspector.inspectMetrics(isBatch, roundTripStart);
-
-        // Return all metrics
-        return inspector.finish();
+        return inspector;
     }
 }

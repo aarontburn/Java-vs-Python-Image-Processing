@@ -4,15 +4,12 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
-import saaf.Inspector;
 
 import javax.imageio.ImageIO;
-import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.nio.Buffer;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,9 +33,9 @@ public class Constants {
     public static final String END_TIME_KEY = "end_time";
     public static final String PROCESSING_THROUGHPUT_KEY = "processing_throughput";
     public static final String MEMORY_USED_MB_KEY = "memory_used_mb";
+    public static final String ONLY_METRICS_KEY = "return_only_metrics";
 
     public static final int IMAGE_URL_EXPIRATION_SECONDS = 3600;
-
 
 
     public static boolean saveImageToS3(
@@ -78,18 +75,18 @@ public class Constants {
         if (sb.length() == 0) {
             return null;
         }
-        return "Missing request parameters: " + sb.subSequence(0, sb.length() - 1).toString();
+        return "Missing request parameters: " + sb.subSequence(0, sb.length() - 1);
     }
 
     public static InputStream getImageFromS3AndRecordLatency(final String bucketName,
                                                              final String fileName,
-                                                             final Inspector inspector) {
+                                                             final HashMap<String, Object> inspector) {
         // Fetch the image from S3
         final long s3StartTime = System.currentTimeMillis();
         final S3Object s3Object = AmazonS3ClientBuilder.defaultClient().getObject(bucketName, fileName);
         final InputStream objectData = s3Object.getObjectContent();
 
-        inspector.addAttribute(NETWORK_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
+        inspector.put(NETWORK_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
         return objectData;
     }
 
@@ -107,7 +104,11 @@ public class Constants {
         return (runTime / 1000.0) * memorySizeGB * pricePerGBSecond;
     }
 
-
+    public static HashMap<String, Object> getErrorObject(final String errorMessage) {
+        final HashMap<String, Object> map = new HashMap<>();
+        map.put(ERROR_KEY, errorMessage);
+        return map;
+    }
 
 
     @FunctionalInterface

@@ -32,6 +32,8 @@ public class Inspector {
     private boolean inspectedPlatform = false;
     private boolean inspectedLinux = false;
 
+    private final boolean returnOnlyMetrics;
+
     /**
      * Initialize Inspector.
      * attributes: Used to store information collected by each function.
@@ -39,65 +41,66 @@ public class Inspector {
      * lang: Function language (java).
      */
     public Inspector() {
-        startTime = System.currentTimeMillis();
-        attributes = new HashMap<>();
+        this(false);
+    }
 
+    public Inspector(final Boolean returnOnlyMetrics) {
+        startTime = System.currentTimeMillis();
+
+        this.returnOnlyMetrics = returnOnlyMetrics != null && returnOnlyMetrics;
+
+        attributes = new HashMap<>();
         attributes.put("version", 0.5);
-        attributes.put("lang", "java");
         attributes.put("startTime", startTime);
     }
+
 
     /**
      * Collects and records only the essential performance metrics during the execution of a function.
      *
-     * @param isBatch        Indicates whether the function is part of a batch processing operation.
-     *                       If {@code true}, certain metrics like network latency might be skipped.
      * @param roundTripStart The timestamp (in milliseconds) when the function's execution started.
      *                       Used to calculate the function runtime.
      */
-    public void inspectMetrics(boolean isBatch, long roundTripStart) {
+    public void inspectMetrics(long roundTripStart) {
         // Record the start time of the invocation
         this.addAttribute(Constants.START_TIME_KEY, roundTripStart);
-    
+
         // Inspect container to determine cold start
         this.inspectContainer();
         boolean isColdStart = (Integer) this.getAttribute("newcontainer") == 1;
         this.addAttribute(Constants.COLD_START_KEY, isColdStart ? 1 : 0);
-    
+
         // Add language (static or dynamic)
         this.addAttribute(Constants.LANGUAGE_KEY, "Java");
-    
+
         // Inspect memory usage
         this.inspectMemory();
         int totalMemory = Integer.parseInt((String) this.getAttribute("totalMemory"));
         int freeMemory = Integer.parseInt((String) this.getAttribute("freeMemory"));
         int memoryUsedMb = (totalMemory - freeMemory) / 1024;
         this.addAttribute(Constants.MEMORY_USED_MB_KEY, memoryUsedMb);
-    
+
         // Network latency recorded by Constants
         Long networkLatency = (Long) this.getAttribute(Constants.NETWORK_LATENCY_KEY);
         if (networkLatency != null) {
             this.addAttribute(Constants.NETWORK_LATENCY_KEY, networkLatency);
         }
-    
+
         // Calculate function runtime
         long functionRuntime = System.currentTimeMillis() - roundTripStart;
         this.addAttribute(Constants.FUNCTION_RUN_TIME_KEY, functionRuntime);
-    
+
         // Calculate processing throughput
         double throughput = functionRuntime > 0 ? 1000.0 / functionRuntime : 0;
         this.addAttribute(Constants.PROCESSING_THROUGHPUT_KEY, throughput);
-    
+
         // Estimate cost
         double cost = Constants.estimateCost(functionRuntime);
         this.addAttribute(Constants.ESTIMATED_COST_KEY, cost);
-    
+
         // Record end time
         this.addAttribute(Constants.END_TIME_KEY, System.currentTimeMillis());
     }
-    
-    
-
 
 
     /**
@@ -516,31 +519,33 @@ public class Inspector {
      * @return Attributes collected by the Inspector.
      */
     public HashMap<String, Object> finish() {
-        HashMap<String, Object> filteredAttributes = new HashMap<>();
-    
+        if (!this.returnOnlyMetrics) {
+            return attributes;
+        }
+
+        final HashMap<String, Object> filteredAttributes = new HashMap<>();
+
         // Include only necessary metrics
-        String[] desiredKeys = {
-            Constants.START_TIME_KEY,
-            Constants.END_TIME_KEY,
-            Constants.FUNCTION_RUN_TIME_KEY,
-            Constants.COLD_START_KEY,
-            Constants.NETWORK_LATENCY_KEY,
-            Constants.PROCESSING_THROUGHPUT_KEY,
-            Constants.MEMORY_USED_MB_KEY,
-            Constants.ESTIMATED_COST_KEY,
-            Constants.LANGUAGE_KEY
+        final String[] desiredKeys = {
+                Constants.START_TIME_KEY,
+                Constants.END_TIME_KEY,
+                Constants.FUNCTION_RUN_TIME_KEY,
+                Constants.COLD_START_KEY,
+                Constants.NETWORK_LATENCY_KEY,
+                Constants.PROCESSING_THROUGHPUT_KEY,
+                Constants.MEMORY_USED_MB_KEY,
+                Constants.ESTIMATED_COST_KEY,
+                Constants.LANGUAGE_KEY
         };
-    
-        for (String key : desiredKeys) {
+
+        for (final String key : desiredKeys) {
             if (attributes.containsKey(key)) {
                 filteredAttributes.put(key, attributes.get(key));
             }
         }
-    
-        return filteredAttributes;
-    }
-    
 
+       return filteredAttributes;
+    }
 
 
     /**

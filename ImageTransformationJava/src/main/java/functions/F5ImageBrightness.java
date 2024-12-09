@@ -48,19 +48,12 @@ public class F5ImageBrightness {
     public static HashMap<String, Object> imageBrightness(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
 
-        Inspector inspector = new Inspector();
-
-        // Record the round-trip start time
-        final long roundTripStart = System.currentTimeMillis();
-
+        final HashMap<String, Object> inspector = new HashMap<>();
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY, "brightness_delta");
         if (validateMessage != null) {
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, validateMessage);
-            return inspector.finish();
+            return Constants.getErrorObject(validateMessage);
         }
-
 
         try {
             // Extract input parameters
@@ -69,6 +62,9 @@ public class F5ImageBrightness {
             final Integer brightnessDelta = (Integer) request.get("brightness_delta");
             final String outputFileName = "brightness_" + fileName;
 
+            if (fileName.split("\\.")[1].equalsIgnoreCase("png")) {
+                return Constants.getErrorObject("Cannot modify brightness of a png file.");
+            }
 
             // Validate brightness_delta
             if (brightnessDelta < MIN_BRIGHTNESS || brightnessDelta > MAX_BRIGHTNESS) {
@@ -81,6 +77,7 @@ public class F5ImageBrightness {
             // Decode the Base64-encoded image
             final BufferedImage originalImage = isBatch ? image : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
 
+
             // Adjust brightness
             final BufferedImage brightenedImage = adjustBrightness(originalImage, brightnessFactor);
 
@@ -88,34 +85,25 @@ public class F5ImageBrightness {
                 final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", brightenedImage);
                 if (!successfulWriteToS3) {
                     throw new RuntimeException("Could not write image to S3");
-
                 }
+//                inspector.put(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
+//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+            } else {
+                inspector.put(IMAGE_FILE_KEY, brightenedImage);
             }
 
             // Populate response attributes
-            inspector.addAttribute(SUCCESS_KEY, "Successfully changed image brightness.");
-            inspector.addAttribute("original_width", originalImage.getWidth());
-            inspector.addAttribute("original_height", originalImage.getHeight());
-            inspector.addAttribute("brightness_delta", brightnessDelta);
-            inspector.addAttribute("brightness_factor", brightnessFactor);
-            if (isBatch) {
-                inspector.addAttribute(IMAGE_FILE_KEY, brightenedImage);
-            } else {
-                inspector.addAttribute(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
-                inspector.addAttribute(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
-            }
+            inspector.put(SUCCESS_KEY, "Successfully changed image brightness.");
+            inspector.put("brightness_delta", brightnessDelta);
+            inspector.put("brightness_factor", brightnessFactor);
 
         } catch (Exception e) {
             e.printStackTrace();
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, e.getMessage());
+            return Constants.getErrorObject(e.toString());
         }
 
-        // Collect metrics
-        inspector.inspectMetrics(isBatch, roundTripStart);
 
-
-        return inspector.finish();
+        return inspector;
     }
 
 

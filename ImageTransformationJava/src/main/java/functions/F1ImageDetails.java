@@ -1,7 +1,6 @@
 package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import saaf.Inspector;
 import utils.Constants;
 
 import javax.imageio.ImageIO;
@@ -38,19 +37,12 @@ public class F1ImageDetails {
         final boolean isBatch = image != null;
 
         // This could be replaced with a hashmap, especially if we don't need info from the inspector
-        Inspector inspector = new Inspector();
-
-        // Record the round-trip start time
-        final long roundTripStart = System.currentTimeMillis();
-
+        final HashMap<String, Object> inspector = new HashMap<>();
 
         final String validateMessage = Constants.validateRequestMap(request, BUCKET_KEY, FILE_NAME_KEY);
         if (validateMessage != null) {
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, validateMessage);
-            return inspector.finish();
+            return Constants.getErrorObject(validateMessage);
         }
-
 
         try {
             final String bucketName = (String) request.get(BUCKET_KEY);
@@ -59,25 +51,21 @@ public class F1ImageDetails {
             final InputStream objectData = Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             final BufferedImage imageObject = isBatch ? image : ImageIO.read(objectData);
 
-            inspector.addAttribute(SUCCESS_KEY, "Successfully retrieved image details.");
-            inspector.addAttribute("width", imageObject.getWidth());
-            inspector.addAttribute("height", imageObject.getHeight());
-            inspector.addAttribute("mode", getColorType(imageObject.getColorModel().getColorSpace().getType()));
-            inspector.addAttribute("has_transparency_data", imageObject.getColorModel().hasAlpha() ? 1 : 0);
+            inspector.put(SUCCESS_KEY, "Successfully retrieved image details.");
+            inspector.put("width", imageObject.getWidth());
+            inspector.put("height", imageObject.getHeight());
+            inspector.put("mode", getColorType(imageObject.getColorModel().getColorSpace().getType()));
+            inspector.put("has_transparency_data", imageObject.getColorModel().hasAlpha() ? 1 : 0);
             if (isBatch) {
-                inspector.addAttribute(IMAGE_FILE_KEY, imageObject);
+                inspector.put(IMAGE_FILE_KEY, imageObject);
             }
 
         } catch (final Exception e) {
             e.printStackTrace();
-            inspector = new Inspector();
-            inspector.addAttribute(ERROR_KEY, e.toString());
+            return Constants.getErrorObject(e.toString());
         }
-        // Collect metrics
-        inspector.inspectMetrics(isBatch, roundTripStart);
 
-
-        return inspector.finish();
+        return inspector;
     }
 
     private static String getColorType(final int type) {

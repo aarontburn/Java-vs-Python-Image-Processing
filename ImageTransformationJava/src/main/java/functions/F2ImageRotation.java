@@ -9,6 +9,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 
+import static utils.Constants.*;
+
 public class F2ImageRotation {
 
     /***
@@ -33,15 +35,14 @@ public class F2ImageRotation {
      */
     public static HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
-        Inspector inspector = new Inspector();
+
+        final HashMap<String, Object> inspector = new HashMap<>();
     
-        long roundTripStart = System.currentTimeMillis();
-    
+
         try {
             // Validate request parameters
             if (!request.containsKey(Constants.BUCKET_KEY) || !request.containsKey(Constants.FILE_NAME_KEY) || !request.containsKey("rotation_angle")) {
-                inspector.addAttribute("Error", "Missing required parameters: bucketName, fileName, or rotation_angle.");
-                return inspector.finish();
+                return Constants.getErrorObject("Missing required parameters: bucketName, fileName, or rotation_angle.");
             }
     
             final String bucketName = request.get(Constants.BUCKET_KEY).toString();
@@ -51,8 +52,7 @@ public class F2ImageRotation {
     
             // Validate rotation angle
             if (!(rotationAngle == 90 || rotationAngle == 180 || rotationAngle == 270)) {
-                inspector.addAttribute("Error", "Invalid rotation_angle. Only 90, 180, or 270 degrees are supported.");
-                return inspector.finish();
+                return Constants.getErrorObject("Invalid rotation_angle. Only 90, 180, or 270 degrees are supported.");
             }
     
             // Download image
@@ -66,24 +66,29 @@ public class F2ImageRotation {
     
             // Rotate image
             BufferedImage rotatedImage = rotateImage(originalImage, rotationAngle);
-    
+
             // Upload rotated image to S3
             if (!isBatch) {
                 boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, "png", rotatedImage);
                 if (!uploadSuccess) {
                     throw new RuntimeException("Failed to save rotated image to S3");
                 }
+                // Generate presigned URL for the resized image
+//                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+            } else {
+                inspector.put(Constants.IMAGE_FILE_KEY, rotatedImage); // This needs to stay to work with the batch implementation
             }
+            inspector.put(SUCCESS_KEY, "Image rotated successfully.");
+            inspector.put("rotation_angle", rotationAngle);
+
         } catch (Exception e) {
             e.printStackTrace();
-            inspector.addAttribute("Error", e.getMessage());
+            return Constants.getErrorObject(e.toString());
         }
     
-        // Collect metrics
-        inspector.inspectMetrics(isBatch, roundTripStart);
-    
         // Return all metrics
-        return inspector.finish();
+        return inspector;
     }
     
 
