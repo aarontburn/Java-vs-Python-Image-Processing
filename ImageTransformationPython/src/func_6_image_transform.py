@@ -1,6 +1,6 @@
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
 from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, \
-    IMAGE_URL_EXPIRATION_SECONDS
+    IMAGE_URL_EXPIRATION_SECONDS, SUCCESS_KEY
 from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
 from io import BytesIO
 from typing import Any
@@ -23,15 +23,15 @@ def handle_request(event: AWSRequestObject,
     try:
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
-        output_format: str = str(event.get('output_format', 'JPEG')).upper()  # Default to JPEG
+        target_format: str = str(event.get('target_format', 'JPEG')).upper()  # Default to JPEG
         compress_quality: int = int(
             event.get('compress_quality', 85))  # Default to 85% quality (for lossy formats like JPEG)
         preserve_metadata: bool = bool(event.get('preserve_metadata', True))  # Default to preserving metadata
         output_file_name: str = "transformed_" + file_name
 
-        if output_format not in SUPPORTED_FORMATS:
+        if target_format not in SUPPORTED_FORMATS:
             return {
-                ERROR_KEY: f"Unsupported output format: {output_format}. Supported formats: {', '.join(SUPPORTED_FORMATS)}"}
+                ERROR_KEY: f"Unsupported output format: {target_format}. Supported formats: {', '.join(SUPPORTED_FORMATS)}"}
         if not (1 <= compress_quality <= 100):
             return {ERROR_KEY: "Compression quality must be between 1 and 100."}
 
@@ -46,12 +46,12 @@ def handle_request(event: AWSRequestObject,
             save_kwargs["exif"] = None
 
         # Handle compression for lossy formats
-        if output_format == "JPEG":
+        if target_format == "JPEG":
             save_kwargs["quality"] = compress_quality
 
         try:
-            image = image.convert("RGB") if output_format == "JPEG" else image
-            image.save(output_buffer, format=output_format, **save_kwargs)
+            image = image.convert("RGB") if target_format == "JPEG" else image
+            image.save(output_buffer, format=target_format, **save_kwargs)
         except Exception as e:
             return {ERROR_KEY: f"Error finalizing image: {str(e)}"}
 
@@ -62,8 +62,8 @@ def handle_request(event: AWSRequestObject,
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict["output_format"] = output_format
-        output_dict["message"] = "Image finalized successfully."
+        output_dict[SUCCESS_KEY] = "Successfully transformed image."
+        output_dict["target_format"] = target_format
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = image

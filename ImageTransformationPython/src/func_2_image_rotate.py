@@ -1,6 +1,6 @@
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
 from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, \
-    IMAGE_URL_EXPIRATION_SECONDS
+    IMAGE_URL_EXPIRATION_SECONDS, SUCCESS_KEY
 from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
 
 ROTATION_ANGLE_KEY: str = 'rotation_angle'
@@ -30,9 +30,6 @@ def handle_request(event: AWSRequestObject,
         if rotation_angle not in [90, 180, 270]:
             return {ERROR_KEY: "Invalid rotation angle. Only 90, 180, or 270 degrees are supported."}
 
-        # Save original dimensions
-        original_width, original_height = img.width, img.height
-
         # Perform the rotation
         rotated_img: ImageType = img.rotate(-rotation_angle, expand=True)
 
@@ -41,10 +38,7 @@ def handle_request(event: AWSRequestObject,
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict['original_width'] = original_width
-        output_dict['original_height'] = original_height
-        output_dict['rotated_width'] = rotated_img.width
-        output_dict['rotated_height'] = rotated_img.height
+        output_dict[SUCCESS_KEY] = "Image rotated successfully"
         output_dict['rotation_angle'] = rotation_angle
 
         if is_batch:

@@ -1,5 +1,5 @@
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
-from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, SUCCESS_KEY
 from utils_helpers import get_image_from_s3_and_record_time, validate_event
 
 
@@ -22,6 +22,7 @@ def handle_request(event: AWSRequestObject,
         img: ImageType = batch_image if is_batch else get_image_from_s3_and_record_time(bucket_name, file_name,
                                                                                         output_dict)
 
+        output_dict[SUCCESS_KEY] = "Successfully retrieved image details"
         output_dict['height'] = img.height
         output_dict['width'] = img.width
         output_dict['mode'] = img.mode

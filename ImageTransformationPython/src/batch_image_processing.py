@@ -1,6 +1,6 @@
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, AWSFunction
 from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_EXPIRATION_SECONDS, \
-    IMAGE_URL_KEY
+    IMAGE_URL_KEY, SUCCESS_KEY
 from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
 from typing import Any
 from func_1_image_details import handle_request as f1
@@ -70,7 +70,10 @@ def handle_request(event: AWSRequestObject,
         if not successful_write_to_s3:
             raise RuntimeError("Could not write image to S3.")
 
+        output_dict[SUCCESS_KEY] = "Successfully processed image."
+        output_dict["batch_operations_count"] = len(operations)
         output_dict['operation_outputs'] = operation_outputs
+        
         output_dict[IMAGE_URL_KEY] = get_downloadable_image_url(bucket_name, output_file_name)
         output_dict[IMAGE_URL_EXPIRATION_SECONDS] = IMAGE_URL_EXPIRATION_SECONDS
 

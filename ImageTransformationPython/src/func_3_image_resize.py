@@ -1,6 +1,6 @@
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
 from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, \
-    IMAGE_URL_EXPIRATION_SECONDS
+    IMAGE_URL_EXPIRATION_SECONDS, SUCCESS_KEY
 from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
 
 TARGET_WIDTH_KEY: str = 'target_width'
@@ -39,9 +39,12 @@ def handle_request(event: AWSRequestObject,
             if not successful_write_to_s3:
                 raise RuntimeError("Could not write image to S3.")
 
-        output_dict["message"] = "Image resized successfully."
+        output_dict[SUCCESS_KEY] = "Image resized successfully."
+        output_dict["original_width"] = image.width
+        output_dict["original_height"] = image.height
         output_dict[TARGET_WIDTH_KEY] = target_width
         output_dict[TARGET_HEIGHT_KEY] = target_height
+
 
         if is_batch:
             output_dict[IMAGE_FILE_KEY] = resized_image

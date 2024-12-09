@@ -110,7 +110,6 @@ public class F3ImageResize {
             inspector.put(SUCCESS_KEY, "Image resized successfully.");
             inspector.put("original_width", originalWidth);
             inspector.put("original_height", originalHeight);
-
             inspector.put("target_width", targetWidth);
             inspector.put("target_height", targetHeight);
 
