@@ -17,6 +17,7 @@ COLD_START_KEY: str = "cold_start"
 BUCKET_KEY: str = "bucketname"
 FILE_NAME_KEY: str = "filename"
 ONLY_METRICS_KEY: str = "return_only_metrics"
+GET_DOWNLOAD_KEY: str = "get_download"
 
 # Response Body Keys
 ERROR_KEY: str = 'error'

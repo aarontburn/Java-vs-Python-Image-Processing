@@ -20,11 +20,11 @@ public class Main {
         // Record function start time
         final long roundTripStart = System.currentTimeMillis();
 
-        // Execute function
-        final HashMap<String, Object> functionOutput = function.process(request, context);
-
         // Use Inspector for metrics collection
         final Inspector inspector = new Inspector(returnOnlyMetrics);
+
+        // Execute function
+        final HashMap<String, Object> functionOutput = function.process(request, context);
 
         // Move network latency to top-level inspector and remove from function output
         inspector.addAttribute(Constants.NETWORK_LATENCY_KEY, functionOutput.get(Constants.NETWORK_LATENCY_KEY));

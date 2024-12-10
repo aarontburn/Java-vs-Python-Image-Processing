@@ -3,7 +3,6 @@ package functions;
 import com.amazonaws.services.lambda.runtime.Context;
 import utils.Constants;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
@@ -68,14 +67,9 @@ public class F3ImageResize {
             }
 
             // Fetch the image from S3 and measure network latency
-            BufferedImage originalImage;
-            try {
-                originalImage = isBatch ? image : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
-                if (originalImage == null) {
-                    throw new IllegalArgumentException("Image could not be decoded. Check the file format.");
-                }
-            } catch (Exception e) {
-                return Constants.getErrorObject("Error fetching image from S3: " + e.getMessage());
+            final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
+            if (originalImage == null) {
+                return Constants.getErrorObject("Could not access image from S3.");
             }
 
             // Record original dimensions

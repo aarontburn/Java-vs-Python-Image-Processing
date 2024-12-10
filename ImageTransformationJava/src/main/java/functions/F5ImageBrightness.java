@@ -74,9 +74,10 @@ public class F5ImageBrightness {
             // Map brightness_delta (1–100) to RescaleOp factor (0.0–2.0)
             final float brightnessFactor = brightnessDelta / 50.0f;
 
-            // Decode the Base64-encoded image
-            final BufferedImage originalImage = isBatch ? image : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
-
+            final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
+            if (originalImage == null) {
+                return Constants.getErrorObject("Could not access image from S3.");
+            }
 
             // Adjust brightness
             final BufferedImage brightenedImage = adjustBrightness(originalImage, brightnessFactor);

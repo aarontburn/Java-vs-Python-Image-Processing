@@ -1,10 +1,8 @@
 package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import saaf.Inspector;
 import utils.Constants;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 
@@ -47,15 +45,10 @@ public class F4ImageGrayscale {
             final String fileName = (String) request.get(FILE_NAME_KEY);
             final String outputFileName = "grayscaled_" + fileName;
 
-            // Download image
-            final BufferedImage originalImage = isBatch
-                    ? image
-                    : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
-
+            final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (originalImage == null) {
-                return Constants.getErrorObject("Failed to decode image data.");
+                return Constants.getErrorObject("Could not access image from S3.");
             }
-
             // Convert image to grayscale
             BufferedImage grayscaleImage = new BufferedImage(
                     originalImage.getWidth(),

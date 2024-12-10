@@ -86,16 +86,23 @@ public class Constants {
         return "Missing request parameters: " + sb.subSequence(0, sb.length() - 1);
     }
 
-    public static InputStream getImageFromS3AndRecordLatency(final String bucketName,
+    public static BufferedImage getImageFromS3AndRecordLatency(final String bucketName,
                                                              final String fileName,
                                                              final HashMap<String, Object> inspector) {
-        // Fetch the image from S3
-        final long s3StartTime = System.currentTimeMillis();
-        final S3Object s3Object = AmazonS3ClientBuilder.defaultClient().getObject(bucketName, fileName);
-        final InputStream objectData = s3Object.getObjectContent();
+        try {
+            // Fetch the image from S3
+            final long s3StartTime = System.currentTimeMillis();
+            final S3Object s3Object = AmazonS3ClientBuilder.defaultClient().getObject(bucketName, fileName);
+            final InputStream objectData = s3Object.getObjectContent();
 
-        inspector.put(NETWORK_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
-        return objectData;
+            final BufferedImage image = ImageIO.read(objectData);
+            inspector.put(NETWORK_LATENCY_KEY, System.currentTimeMillis() - s3StartTime);
+            return image;
+
+        } catch (final Exception e) {
+            return null;
+        }
+
     }
 
     public static String getDownloadableImageURL(final String bucketName, final String fileName) {

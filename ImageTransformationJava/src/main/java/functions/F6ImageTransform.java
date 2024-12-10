@@ -53,12 +53,9 @@ public class F6ImageTransform {
             final String outputFileName = "transformed_" + (fileName.split("\\.")[0]) + "." + targetFormat.toLowerCase();
 
             // Read the original image
-            final BufferedImage originalImage = isBatch
-                    ? image
-                    : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
-
+            final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (originalImage == null) {
-                throw new IllegalArgumentException("Failed to decode image data.");
+                return Constants.getErrorObject("Could not access image from S3.");
             }
 
             // Transform the image to the target format

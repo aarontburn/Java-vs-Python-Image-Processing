@@ -4,7 +4,6 @@ import com.amazonaws.services.lambda.runtime.Context;
 import utils.Constants;
 import utils.Constants.ImageBatchFunction;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,9 +45,9 @@ public class ImageBatchProcessing {
             final List<HashMap<String, Object>> operationsOutput = new ArrayList<>();
 
             // Fetch the initial image from S3
-            BufferedImage image = ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
+            BufferedImage image = Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (image == null) {
-                throw new IllegalArgumentException("Failed to decode image data.");
+                return Constants.getErrorObject("Could not access image from S3.");
             }
 
             // Process all operations
@@ -60,11 +59,6 @@ public class ImageBatchProcessing {
                     System.out.println("Pipeline error: Invalid operation name at index " + i + ": " + operationName);
                     continue;
                 }
-                if (operationArgs == null) {
-                    System.out.println("Pipeline error: Error retrieving input arguments at index " + i);
-                    continue;
-                }
-
 
                 // Add required params to the operation arguments
                 operationArgs.put(BUCKET_KEY, bucketName);

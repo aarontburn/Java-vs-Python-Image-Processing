@@ -10,8 +10,11 @@ import time
 # @param command An array of strings with each part of the command.
 # @return Standard out of the command.
 #
+
+
 def runCommand(command):
     return os.popen(command).read()
+
 
 #
 # Global variables that will persist through multiple invocations.
@@ -27,22 +30,24 @@ ticks_per_second = int(runCommand("getconf CLK_TCK"))
 # @author Wen Shu
 # @author Robert Cordingly
 #
+
+
 class Inspector:
-    
+
     #
     # Initialize SAAF.
     #
     # __attributes: Used to store information collected by each function.
     # __startTime:  The time the function started running.
     #
-    def __init__(self, return_only_metrics = False):
+    def __init__(self, return_only_metrics: bool = False):
         global invocations
         global initialization_time
         invocations += 1
-        
+
         self.__startTime = int(round(time.time() * 1000))
         self.__attributes = {
-            "version": 0.7, 
+            "version": 0.7,
             "startTime": self.__startTime,
             "invocations": invocations,
             "initializationTime": initialization_time
@@ -63,17 +68,14 @@ class Inspector:
         self.__inspectedPlatformDelta = False
         self.__inspectedLinux = False
         self.__inspectedLinuxDelta = False
-        
-        
-        
-        
-        
+
     #
     # Collect information about the runtime container.
     #
     # uuid:            A unique identifier assigned to a container if one does not already exist.
     # newcontainer:    Whether a container is new (no assigned uuid) or if it has been used before.
     #
+
     def inspectContainer(self):
         self.__inspectedContainer = True
 
@@ -90,11 +92,10 @@ class Inspector:
             myUuid = str(uuid.uuid4())
             stampFile.write(myUuid)
             stampFile.close()
-            
+
         self.__attributes['uuid'] = myUuid
         self.__attributes['newcontainer'] = newContainer
-        
-        
+
     #
     # Collect information about the CPU assigned to this function.
     #
@@ -103,11 +104,12 @@ class Inspector:
     # cpuCores:     The number of vCPUs allocated to the function.
     # cpuInfo:    Detailed information about all aspects of the CPU.
     #
+
     def inspectCPUInfo(self):
         with open('/proc/cpuinfo', 'r') as file:
             cpuInfo = file.read()
         lines = cpuInfo.split('\n')
-        
+
         cpu_info = {}
         core_list = []
         cpu_count = 0
@@ -122,16 +124,16 @@ class Inspector:
                     core_list.append(cpu_info)
                     cpu_info = {}
                     continue
-                
+
                 value = keyValue[1].strip()
-                
+
                 if (key == "flags" or key == "bugs" or key == "Features"):
                     value = value.split(" ")
-                
+
                 cpu_info[key] = value
             except Exception as e:
                 pass
-            
+
         if 'model_name' in core_list[0]:
             self.__attributes['cpuType'] = core_list[0]['model_name']
             self.__attributes['cpuModel'] = core_list[0]['model']
@@ -143,29 +145,30 @@ class Inspector:
             self.__attributes['architecture'] = "arm64"
         self.__attributes['cpuCores'] = int(cpu_count)
         self.__attributes['cpuInfo'] = core_list
-        
+
     #
     # Collect timing CPU metrics
     #
     def pollCPUStats(self):
         global ticks_per_second
-        
+
         timeStamp = int(round(time.time() * 1000))
 
-        cpuValues = ["cpuUser", "cpuNice", "cpuKernel", "cpuIdle", "cpuIOWait", "cpuIrq", "cpuSoftIrq", "cpuSteal", "cpuGuest", "cpuGuestNice"]
+        cpuValues = ["cpuUser", "cpuNice", "cpuKernel", "cpuIdle", "cpuIOWait",
+                     "cpuIrq", "cpuSoftIrq", "cpuSteal", "cpuGuest", "cpuGuestNice"]
         data = {"time": timeStamp}
-        
+
         tick_rate = 1000 / ticks_per_second
 
         with open('/proc/stat', 'r') as file:
             stats = file.read()
         lines = stats.split('\n')
         lines[0] = lines[0].replace("cpu  ", "cpuTotal ")
-        
+
         for line in lines:
             values = line.split(" ")
             title = values[0].strip()
-            
+
             if ("cpu" in title):
                 index = 1
                 stats = {}
@@ -176,10 +179,9 @@ class Inspector:
             else:
                 if len(values) >= 2:
                     data[title] = int(values[1])
-                    
+
         self.__cpuPolls.append(data)
-        
-        
+
     #
     # Collect information about the CPU assigned to this function.
     #
@@ -193,12 +195,14 @@ class Inspector:
     # vmcpusteal:  Time spent waiting for real CPU while hypervisor is using another virtual CPU.
     # contextSwitches: Number of context switches.
     #
+
     def inspectCPU(self):
         self.__inspectedCPU = True
 
         self.pollCPUStats()
 
-        CPUMetrics = ["cpuUser", "cpuNice", "cpuKernel", "cpuIdle", "cpuIOWait", "cpuIrq", "cpuSoftIrq", "cpuSteal", "cpuGuest", "cpuGuestNice"]
+        CPUMetrics = ["cpuUser", "cpuNice", "cpuKernel", "cpuIdle", "cpuIOWait",
+                      "cpuIrq", "cpuSoftIrq", "cpuSteal", "cpuGuest", "cpuGuestNice"]
         for metric in CPUMetrics:
             self.__attributes[metric] = self.__cpuPolls[0]['cpuTotal'][metric]
 
@@ -206,7 +210,7 @@ class Inspector:
     #
     # Compare information gained from inspectCPU to the current CPU metrics.
     #
-    # Note: This function should be called at the end of your function and 
+    # Note: This function should be called at the end of your function and
     # must be called AFTER inspectCPU.
     #
     # cpuUsrDelta:      Time spent normally executing in user mode.
@@ -219,17 +223,20 @@ class Inspector:
     # vmcpustealDelta:  Time spent waiting for real CPU while hypervisor is using another virtual CPU.
     # contextSwitchesDelta: Number of context switches.
     #
+
     def inspectCPUDelta(self):
         if (self.__inspectedCPU):
             self.__inspectedCPUDelta = True
-            
+
             self.pollCPUStats()
             totalPolls = len(self.__cpuPolls)
-            
-            CPUMetrics = ["cpuUser", "cpuNice", "cpuKernel", "cpuIdle", "cpuIOWait", "cpuIrq", "cpuSoftIrq", "cpuSteal", "cpuGuest", "cpuGuestNice"]
+
+            CPUMetrics = ["cpuUser", "cpuNice", "cpuKernel", "cpuIdle", "cpuIOWait",
+                          "cpuIrq", "cpuSoftIrq", "cpuSteal", "cpuGuest", "cpuGuestNice"]
             CPUTotal = 0
             for metric in CPUMetrics:
-                value = self.__cpuPolls[totalPolls - 1]['cpuTotal'][metric]  - self.__cpuPolls[0]['cpuTotal'][metric]
+                value = self.__cpuPolls[totalPolls - 1]['cpuTotal'][metric] - \
+                    self.__cpuPolls[0]['cpuTotal'][metric]
                 self.__attributes[metric + "Delta"] = value
                 CPUTotal += value
         else:
@@ -243,7 +250,7 @@ class Inspector:
 
     #
     # Inspects /proc/meminfo and /proc/vmstat. Add memory specific attributes:
-    # 
+    #
     # totalMemory:     Total memory allocated to the VM in kB.
     # freeMemory:      Current free memory in kB when inspectMemory is called.
     # pageFaults:      Total number of page faults experienced by the vm since boot.
@@ -255,8 +262,10 @@ class Inspector:
         with open('/proc/meminfo', 'r') as file:
             memInfo = file.read()
         lines = memInfo.split('\n')
-        self.__attributes['totalMemory'] = int(lines[0].replace("MemTotal:", "").replace(" kB", "").strip())
-        self.__attributes['freeMemory'] = int(lines[1].replace("MemFree:", "").replace(" kB", "").strip())
+        self.__attributes['totalMemory'] = int(
+            lines[0].replace("MemTotal:", "").replace(" kB", "").strip())
+        self.__attributes['freeMemory'] = int(
+            lines[1].replace("MemFree:", "").replace(" kB", "").strip())
 
         if os.path.isfile('/proc/vmstat'):
             vmStat = ""
@@ -267,13 +276,14 @@ class Inspector:
                 if 'pgfault' in line:
                     self.__attributes['pageFaults'] = int(line.split(' ')[1])
                 elif 'mgmajfault' in line:
-                    self.__attributes['majorPageFaults'] = int(line.split(' ')[1])
+                    self.__attributes['majorPageFaults'] = int(
+                        line.split(' ')[1])
         else:
             self.__attributes['SAAFMemoryError'] = "/proc/vmstat does not exist!"
 
     #
     # Inspects /proc/vmstat to see how specific memory stats have changed.
-    # 
+    #
     # pageFaultsDelta:     The number of page faults experienced since inspectMemory was called.
     # majorPageFaultsDelta: The number of major pafe faults since inspectMemory was called.
     #
@@ -287,14 +297,16 @@ class Inspector:
                 lines = vmStat.split("\n")
                 for line in lines:
                     if 'pgfault' in line:
-                        self.__attributes['pageFaultsDelta'] = int(line.split(' ')[1]) - self.__attributes['pageFaults']
+                        self.__attributes['pageFaultsDelta'] = int(
+                            line.split(' ')[1]) - self.__attributes['pageFaults']
                     elif 'mgmajfault' in line:
-                        self.__attributes['majorPageFaultsDelta'] = int(line.split(' ')[1]) - self.__attributes['majorPageFaults']
+                        self.__attributes['majorPageFaultsDelta'] = int(
+                            line.split(' ')[1]) - self.__attributes['majorPageFaults']
             else:
                 self.__attributes['SAAFMemoryDeltaError'] = "/proc/vmstat does not exist!"
         else:
             self.__attributes['SAAFMemoryDeltaError'] = "Memory not inspected before collecting deltas!"
-        
+
     #
     # Collect information about the current FaaS platform.
     #
@@ -312,63 +324,83 @@ class Inspector:
         if (key != None):
             self.__attributes['platform'] = "AWS Lambda"
             self.__attributes['containerID'] = key
-            self.__attributes['functionName'] = os.environ.get('AWS_LAMBDA_FUNCTION_NAME', None)
-            self.__attributes['functionMemory'] = os.environ.get('AWS_LAMBDA_FUNCTION_MEMORY_SIZE', None)
-            self.__attributes['functionRegion'] = os.environ.get('AWS_REGION', None)
+            self.__attributes['functionName'] = os.environ.get(
+                'AWS_LAMBDA_FUNCTION_NAME', None)
+            self.__attributes['functionMemory'] = os.environ.get(
+                'AWS_LAMBDA_FUNCTION_MEMORY_SIZE', None)
+            self.__attributes['functionRegion'] = os.environ.get(
+                'AWS_REGION', None)
 
-            vmID = runCommand('cat /proc/self/cgroup | grep 2:cpu').replace('\n', '')
+            vmID = runCommand(
+                'cat /proc/self/cgroup | grep 2:cpu').replace('\n', '')
             self.__attributes['vmID'] = vmID[20: 26]
         else:
             key = os.environ.get('X_GOOGLE_FUNCTION_NAME', None)
             if (key != None):
                 self.__attributes['platform'] = "Google Cloud Functions"
                 self.__attributes['functionName'] = key
-                self.__attributes['functionMemory'] = os.environ.get('X_GOOGLE_FUNCTION_MEMORY_MB', None)
-                self.__attributes['functionRegion'] = os.environ.get('X_GOOGLE_FUNCTION_REGION', None)
+                self.__attributes['functionMemory'] = os.environ.get(
+                    'X_GOOGLE_FUNCTION_MEMORY_MB', None)
+                self.__attributes['functionRegion'] = os.environ.get(
+                    'X_GOOGLE_FUNCTION_REGION', None)
             else:
                 key = os.environ.get('__OW_ACTION_NAME', None)
                 if (key != None):
                     self.__attributes['platform'] = "IBM Cloud Functions"
                     self.__attributes['functionName'] = key
-                    self.__attributes['functionRegion'] = os.environ.get('__OW_API_HOST', None)
-                    self.__attributes["vmID"] = runCommand("cat /sys/hypervisor/uuid").strip()
+                    self.__attributes['functionRegion'] = os.environ.get(
+                        '__OW_API_HOST', None)
+                    self.__attributes["vmID"] = runCommand(
+                        "cat /sys/hypervisor/uuid").strip()
 
                 else:
                     key = os.environ.get('CONTAINER_NAME', None)
                     if (key != None):
                         self.__attributes['platform'] = "Azure Functions"
                         self.__attributes['containerID'] = key
-                        self.__attributes['functionName'] = os.environ.get('WEBSITE_SITE_NAME', None)
-                        self.__attributes['functionRegion'] = os.environ.get('Location', None)
+                        self.__attributes['functionName'] = os.environ.get(
+                            'WEBSITE_SITE_NAME', None)
+                        self.__attributes['functionRegion'] = os.environ.get(
+                            'Location', None)
                     else:
-                        key = os.environ.get('KUBERNETES_SERVICE_PORT_HTTPS', None)
+                        key = os.environ.get(
+                            'KUBERNETES_SERVICE_PORT_HTTPS', None)
                         if (key != None):
                             self.__attributes['platform'] = "OpenFaaS EKS"
-                            self.__attributes['http_host'] = os.environ.get('Http_Host', None)
-                            self.__attributes['http_foward'] = os.environ.get('Http_X_Forwarded_For', None)
-                            self.__attributes['http_start_time'] = os.environ.get('Http_X_Start_Time', None)
-                            self.__attributes['host_name'] = os.environ.get('HOSTNAME', None)
+                            self.__attributes['http_host'] = os.environ.get(
+                                'Http_Host', None)
+                            self.__attributes['http_foward'] = os.environ.get(
+                                'Http_X_Forwarded_For', None)
+                            self.__attributes['http_start_time'] = os.environ.get(
+                                'Http_X_Start_Time', None)
+                            self.__attributes['host_name'] = os.environ.get(
+                                'HOSTNAME', None)
                         else:
                             self.__attributes['platform'] = "Unknown Platform"
-    
+
     def __recommendConfiguration(self):
         try:
             if (self.__inspectedPlatform and self.__inspectedCPUDelta):
                 if self.__attributes['platform'] == "AWS Lambda":
-                    availableCPUs = int(self.__attributes['functionMemory']) / 1792
-                    self.__attributes['availableCPUs'] = round(availableCPUs, 3)
+                    availableCPUs = int(
+                        self.__attributes['functionMemory']) / 1792
+                    self.__attributes['availableCPUs'] = round(
+                        availableCPUs, 3)
                     utilizedCPUs = (self.__attributes['cpuUserDelta'] +
                                     self.__attributes['cpuKernelDelta']) / self.__attributes['userRuntime']
                     self.__attributes['utilizedCPUs'] = round(utilizedCPUs, 3)
                     if availableCPUs - utilizedCPUs < 0.1:
-                        self.__attributes['recommendedMemory'] = min(max(round(0.000556 * (availableCPUs * 1.1) + 0.012346), 128), 10240)
+                        self.__attributes['recommendedMemory'] = min(
+                            max(round(0.000556 * (availableCPUs * 1.1) + 0.012346), 128), 10240)
                     else:
-                        self.__attributes['recommendedMemory'] = min(max(round(0.000556 * utilizedCPUs + 0.012346), 128), 10240)
+                        self.__attributes['recommendedMemory'] = min(
+                            max(round(0.000556 * utilizedCPUs + 0.012346), 128), 10240)
             else:
                 self.__attributes['SAAFRecommendConfigurationError'] = "CPU, CPU Delta, and Platform must be inspected before recommending a configuration!"
         except Exception as e:
-            self.__attributes['SAAFRecommendConfigurationError'] = "Unable to recommend a configuration. " + str(e)
-        
+            self.__attributes['SAAFRecommendConfigurationError'] = "Unable to recommend a configuration. " + str(
+                e)
+
     #
     # Collect information about the linux kernel.
     #
@@ -376,12 +408,13 @@ class Inspector:
     #
     def inspectLinux(self):
         self.__inspectedLinux = True
-        self.__attributes['linuxVersion'] = runCommand('uname -a').replace('\n', '')
+        self.__attributes['linuxVersion'] = runCommand(
+            'uname -a').replace('\n', '')
 
     def inspectMetrics(self, route_trip_start):
         """
         Collect essential metrics for a Lambda function execution.
-        
+
         :param start_time_ms: The function start time in milliseconds.
         :param network_latency_ms: recorded network latency in milliseconds.
         """
@@ -390,26 +423,27 @@ class Inspector:
 
         # Cold start detection
         self.inspectContainer()
-        self.addAttribute(constants.COLD_START_KEY, 1 if self.getAttribute("newcontainer") == 1 else 0)
-        
+        self.addAttribute(constants.COLD_START_KEY,
+                          1 if self.getAttribute("newcontainer") == 1 else 0)
+
         # Language
         self.addAttribute(constants.LANGUAGE_KEY, "Python")
-        
+
         # Memory usage in MB - Using inspectMemory and directly accessing attributes
         self.inspectMemory()
-        memory_used_kb = self.getAttribute('totalMemory') - self.getAttribute('freeMemory')
+        memory_used_kb = self.getAttribute(
+            'totalMemory') - self.getAttribute('freeMemory')
         memory_used_mb = memory_used_kb // 1024
         self.addAttribute(constants.MEMORY_USED_MB_KEY, memory_used_mb)
-        
+
         # Network latency
         # self.addAttribute(constants.NETWORK_LATENCY_KEY, network_latency_ms)
-        
+
         # Function runtime in ms
         end_time_ms = int(round(time.time() * 1000))
-        
+
         function_runtime_ms = end_time_ms - route_trip_start
         self.addAttribute(constants.FUNCTION_RUN_TIME_KEY, function_runtime_ms)
-
 
         # Processing throughput
         throughput = 1000 / function_runtime_ms if function_runtime_ms > 0 else 0
@@ -422,10 +456,10 @@ class Inspector:
         # End time
         self.addAttribute(constants.END_TIME_KEY, end_time_ms)
 
-        
     #
     # Run all data collection methods and record framework runtime.
     #
+
     def inspectAll(self):
         self.inspectContainer()
         self.inspectCPUInfo()
@@ -443,14 +477,15 @@ class Inspector:
 
         # Add the 'userRuntime' timestamp.
         if ('frameworkRuntime' in self.__attributes):
-            self.addTimeStamp("userRuntime", self.__startTime + self.__attributes['frameworkRuntime'])
+            self.addTimeStamp("userRuntime", self.__startTime +
+                              self.__attributes['frameworkRuntime'])
 
         deltaTime = int(round(time.time() * 1000))
         self.inspectCPUDelta()
         self.inspectMemoryDelta()
         self.__recommendConfiguration()
         self.addTimeStamp("frameworkRuntimeDeltas", deltaTime)
-        
+
     #
     # Add a custom attribute to the output.
     #
@@ -459,7 +494,7 @@ class Inspector:
     #
     def addAttribute(self, key, value):
         self.__attributes[key] = value
-        
+
     #
     # Gets a custom attribute from the attribute list.
     #
@@ -468,7 +503,7 @@ class Inspector:
     #
     def getAttribute(self, key):
         return self.__attributes[key]
-        
+
     #
     # Add custom time stamps to the output. The key value determines the name
     # of the attribute and the value will be the time from Inspector initialization
@@ -476,12 +511,12 @@ class Inspector:
     #
     # @param key The name of the time stamp.
     #
-    def addTimeStamp(self, key, timeSince = None):
+    def addTimeStamp(self, key, timeSince=None):
         if timeSince == None:
             timeSince = self.__startTime
         currentTime = int(round(time.time() * 1000))
         self.__attributes[key] = currentTime - timeSince
-        
+
     #
     # Finalize the Inspector. Calculator the total runtime and return the dictionary
     # object containing all attributes collected.
@@ -491,8 +526,7 @@ class Inspector:
     def finish(self):
         if not self.__return_only_metrics:
             return self.__attributes
-            
-        
+
         # List of desired keys
         desired_keys = [
             constants.ESTIMATED_COST_KEY,
@@ -508,4 +542,3 @@ class Inspector:
 
         # Filter and return only the required keys from __attributes
         return {key: self.__attributes[key] for key in desired_keys if key in self.__attributes}
-

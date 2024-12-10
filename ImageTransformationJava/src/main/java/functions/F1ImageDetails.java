@@ -3,10 +3,8 @@ package functions;
 import com.amazonaws.services.lambda.runtime.Context;
 import utils.Constants;
 
-import javax.imageio.ImageIO;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
-import java.io.InputStream;
 import java.util.HashMap;
 
 import static utils.Constants.*;
@@ -48,8 +46,10 @@ public class F1ImageDetails {
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
 
-            final InputStream objectData = Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
-            final BufferedImage imageObject = isBatch ? image : ImageIO.read(objectData);
+            final BufferedImage imageObject = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
+            if (imageObject == null) {
+                return Constants.getErrorObject("Could not access image from S3.");
+            }
 
             inspector.put(SUCCESS_KEY, "Successfully retrieved image details.");
             inspector.put("width", imageObject.getWidth());

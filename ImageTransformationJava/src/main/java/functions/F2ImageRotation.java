@@ -1,10 +1,8 @@
 package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import saaf.Inspector;
 import utils.Constants;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
@@ -38,7 +36,6 @@ public class F2ImageRotation {
 
         final HashMap<String, Object> inspector = new HashMap<>();
     
-
         try {
             // Validate request parameters
             if (!request.containsKey(Constants.BUCKET_KEY) || !request.containsKey(Constants.FILE_NAME_KEY) || !request.containsKey("rotation_angle")) {
@@ -54,16 +51,12 @@ public class F2ImageRotation {
             if (!(rotationAngle == 90 || rotationAngle == 180 || rotationAngle == 270)) {
                 return Constants.getErrorObject("Invalid rotation_angle. Only 90, 180, or 270 degrees are supported.");
             }
-    
-            // Download image
-            final BufferedImage originalImage = isBatch
-                    ? image
-                    : ImageIO.read(Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector));
-    
+
+            final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (originalImage == null) {
-                throw new IllegalArgumentException("Failed to decode image data.");
+                return Constants.getErrorObject("Could not access image from S3.");
             }
-    
+
             // Rotate image
             BufferedImage rotatedImage = rotateImage(originalImage, rotationAngle);
 
