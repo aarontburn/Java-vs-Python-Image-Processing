@@ -5,6 +5,7 @@ import saaf.Inspector;
 import utils.Constants;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -60,16 +61,22 @@ public class F6ImageTransform {
                 return Constants.getErrorObject("Target format must be JPEG or PNG.");
             }
 
-            if (fileExtension.equals(targetFormat.toLowerCase())) {
-                return Constants.getErrorObject("Source and target formats are the same. No transformation needed.");
-            }
+
+            // Function should still work so other things dont break.
+//            if (fileExtension.equals(targetFormat.toLowerCase())) {
+//                return Constants.getErrorObject("Source and target formats are the same. No transformation needed.");
+//            }
 
             final String outputFileName = "transformed_" + fileName.substring(0, fileName.lastIndexOf('.')) + "." + targetFormat.toLowerCase();
 
             // Read the original image
-            final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
+            BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (originalImage == null) {
                 return Constants.getErrorObject("Could not access image from S3.");
+            }
+
+            if (fileExtension.equalsIgnoreCase("png") && targetFormat.equalsIgnoreCase("jpeg")) {
+                originalImage = removeAlphaChannel(originalImage);
             }
 
             // Transform the image to the target format
@@ -83,10 +90,12 @@ public class F6ImageTransform {
             if (!isBatch) {
                 boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, targetFormat.toLowerCase(), transformedImage);
                 if (!uploadSuccess) {
-                    throw new RuntimeException("Failed to save transformed image to S3");
+                    return Constants.getErrorObject("Failed to save image to S3");
                 }
-//                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
-//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                    inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+                    inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                }
             } else {
                 inspector.put(IMAGE_FILE_KEY, transformedImage);
             }
@@ -102,4 +111,22 @@ public class F6ImageTransform {
 
         return inspector;
     }
+
+
+
+    private static BufferedImage removeAlphaChannel(final BufferedImage img) {
+        if (!img.getColorModel().hasAlpha()) {
+            return img;
+        }
+
+        final BufferedImage target = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
+        final Graphics2D g = target.createGraphics();
+        // g.setColor(new Color(color, false));
+        g.fillRect(0, 0, img.getWidth(), img.getHeight());
+        g.drawImage(img, 0, 0, null);
+        g.dispose();
+
+        return target;
+    }
+
 }

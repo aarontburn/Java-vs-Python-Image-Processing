@@ -10,6 +10,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +32,7 @@ public class Constants {
     public static final String BUCKET_KEY = "bucketname";
     public static final String FILE_NAME_KEY = "filename";
     public static final String ONLY_METRICS_KEY = "return_only_metrics";
-
+    public static final String GET_DOWNLOAD_KEY = "get_download";
 
     // Response Body Keys
     public static final String SUCCESS_KEY = "success";
@@ -45,6 +46,7 @@ public class Constants {
 
     public static final int IMAGE_URL_EXPIRATION_SECONDS = 3600;
 
+    public static final String[] ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg"};
 
     public static boolean saveImageToS3(
             final String bucketName,
@@ -87,8 +89,8 @@ public class Constants {
     }
 
     public static BufferedImage getImageFromS3AndRecordLatency(final String bucketName,
-                                                             final String fileName,
-                                                             final HashMap<String, Object> inspector) {
+                                                               final String fileName,
+                                                               final HashMap<String, Object> inspector) {
         try {
             // Fetch the image from S3
             final long s3StartTime = System.currentTimeMillis();
@@ -124,6 +126,11 @@ public class Constants {
         map.put(ERROR_KEY, errorMessage);
         return map;
     }
+
+    public static String getFileExtension(final String fileName) {
+        return fileName.split("\\.")[1].toLowerCase();
+    }
+
 
 
     @FunctionalInterface

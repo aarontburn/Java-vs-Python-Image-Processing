@@ -5,6 +5,7 @@ import utils.Constants;
 
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import static utils.Constants.*;
@@ -42,9 +43,11 @@ public class F1ImageDetails {
             return Constants.getErrorObject(validateMessage);
         }
 
+
         try {
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
+
 
             // Validate file extension
             if (!fileName.toLowerCase().endsWith(".jpeg") && !fileName.toLowerCase().endsWith(".jpg") && !fileName.toLowerCase().endsWith(".png")) {
@@ -63,6 +66,11 @@ public class F1ImageDetails {
             inspector.put("has_transparency_data", imageObject.getColorModel().hasAlpha() ? 1 : 0);
             if (isBatch) {
                 inspector.put(IMAGE_FILE_KEY, imageObject);
+            } else {
+                if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                    inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, fileName));
+                    inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                }
             }
 
         } catch (final Exception e) {

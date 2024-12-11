@@ -66,12 +66,14 @@ public class F4ImageGrayscale {
 
             // Upload grayscale image to S3
             if (!isBatch) {
-                boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, "png", grayscaleImage);
+                boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), grayscaleImage);
                 if (!uploadSuccess) {
-                    throw new RuntimeException("Failed to save grayscaled image to S3");
+                    return Constants.getErrorObject("Failed to save image to S3");
                 }
-//                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
-//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                    inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+                    inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                }
             } else {
                 inspector.put(IMAGE_FILE_KEY, grayscaleImage);
             }

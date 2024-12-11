@@ -54,16 +54,16 @@ def __handle_call(event: AWSRequestObject,
         if constants.ONLY_METRICS_KEY in event \
         else False
 
-    # Use an Inspector for metrics collection
-    inspector: Inspector = Inspector(return_only_metrics)
-
     # To get a download URL, add "get_download": true to request body. Defaults to false.
     get_download_url: bool = \
         bool(event[constants.GET_DOWNLOAD_KEY]) \
         if constants.GET_DOWNLOAD_KEY in event \
         else False
-
     event[constants.GET_DOWNLOAD_KEY] = get_download_url
+
+    # Use an Inspector for metrics collection
+    inspector: Inspector = Inspector(return_only_metrics)
+
 
     # Record function start time
     round_trip_start: int = int(round(time() * 1000))

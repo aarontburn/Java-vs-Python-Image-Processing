@@ -85,9 +85,9 @@ public class ImageBatchProcessing {
             }
 
             // Save the final processed image to S3
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", image);
+            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), image);
             if (!successfulWriteToS3) {
-                throw new RuntimeException("Failed to save processed image to S3.");
+                return Constants.getErrorObject("Failed to save image to S3");
             }
 
             inspector.put(SUCCESS_KEY, "Successfully processed image.");
@@ -95,10 +95,10 @@ public class ImageBatchProcessing {
             inspector.put("operation_outputs", operationsOutput);
 
 
-            // Add final processed image URL
-//            inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
-//            inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
-
+            if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

@@ -10,12 +10,19 @@ import java.util.HashMap;
 
 public class Main {
 
+
+
+
     private HashMap<String, Object> handleCall(final HashMap<String, Object> request,
                                                final Context context,
                                                final ImageProcessFunction function) {
 
         // To return only metrics, add "return_only_metrics": true to request body
-        final boolean returnOnlyMetrics = request.containsKey(Constants.ONLY_METRICS_KEY) && (boolean) request.get(Constants.ONLY_METRICS_KEY);
+        final boolean returnOnlyMetrics = (boolean) request.getOrDefault(Constants.ONLY_METRICS_KEY, false);
+
+        // To get a download URL, add "get_download": true to request body. Defaults to false.
+        final boolean getDownloadURL = (boolean) request.getOrDefault(Constants.GET_DOWNLOAD_KEY, false);
+        request.put(Constants.GET_DOWNLOAD_KEY, getDownloadURL);
 
         // Record function start time
         final long roundTripStart = System.currentTimeMillis();
@@ -38,9 +45,6 @@ public class Main {
 
         return inspector.finish();
     }
-
-
-
 
 
     public HashMap<String, Object> imageDetails(final HashMap<String, Object> input, final Context context) {

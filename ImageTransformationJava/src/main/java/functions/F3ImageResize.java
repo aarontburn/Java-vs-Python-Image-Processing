@@ -88,14 +88,15 @@ public class F3ImageResize {
 
             if (!isBatch) {
                 String resizedFileName = "resized_" + fileName;
-                boolean savedSuccessfully = Constants.saveImageToS3(bucketName, resizedFileName, "png", outputImage);
+                boolean savedSuccessfully = Constants.saveImageToS3(bucketName, resizedFileName, Constants.getFileExtension(resizedFileName), outputImage);
                 if (!savedSuccessfully) {
-                    return Constants.getErrorObject("Failed to save resized image to S3.");
+                    return Constants.getErrorObject("Failed to save image to S3.");
                 }
 
-                // Generate presigned URL for the resized image
-//                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, resizedFileName));
-//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                    inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, fileName));
+                    inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                }
             } else {
                 inspector.put(IMAGE_FILE_KEY, outputImage);
             }

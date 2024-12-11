@@ -35,13 +35,13 @@ public class F2ImageRotation {
         final boolean isBatch = image != null;
 
         final HashMap<String, Object> inspector = new HashMap<>();
-    
+
         try {
             // Validate request parameters
             if (!request.containsKey(Constants.BUCKET_KEY) || !request.containsKey(Constants.FILE_NAME_KEY) || !request.containsKey("rotation_angle")) {
                 return Constants.getErrorObject("Missing required parameters: bucketName, fileName, or rotation_angle.");
             }
-    
+
             final String bucketName = request.get(Constants.BUCKET_KEY).toString();
             final String fileName = request.get(Constants.FILE_NAME_KEY).toString();
             final Integer rotationAngle = (Integer) request.get("rotation_angle");
@@ -68,13 +68,16 @@ public class F2ImageRotation {
 
             // Upload rotated image to S3
             if (!isBatch) {
-                boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, "png", rotatedImage);
+                final boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), rotatedImage);
                 if (!uploadSuccess) {
-                    throw new RuntimeException("Failed to save rotated image to S3");
+                    return Constants.getErrorObject("Failed to save image to S3");
                 }
-                // Generate presigned URL for the resized image
-//                inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
-//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+
+                if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                    inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+                    inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                }
+
             } else {
                 inspector.put(Constants.IMAGE_FILE_KEY, rotatedImage); // This needs to stay to work with the batch implementation
             }
@@ -85,11 +88,11 @@ public class F2ImageRotation {
             e.printStackTrace();
             return Constants.getErrorObject(e.toString());
         }
-    
+
         // Return all metrics
         return inspector;
     }
-    
+
 
     /***
      *  Helper method for image rotation.

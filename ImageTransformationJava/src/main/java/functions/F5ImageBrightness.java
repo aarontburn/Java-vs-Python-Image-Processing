@@ -7,6 +7,7 @@ import utils.Constants;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
 import java.awt.image.RescaleOp;
 import java.util.HashMap;
 
@@ -62,9 +63,9 @@ public class F5ImageBrightness {
             final Integer brightnessDelta = (Integer) request.get("brightness_delta");
             final String outputFileName = "brightness_" + fileName;
 
-            if (fileName.split("\\.")[1].equalsIgnoreCase("png")) {
-                return Constants.getErrorObject("Cannot modify brightness of a png file.");
-            }
+//            if (fileName.split("\\.")[1].equalsIgnoreCase("png")) {
+//                return Constants.getErrorObject("Cannot modify brightness of a png file.");
+//            }
 
             // Validate brightness_delta
             if (brightnessDelta < MIN_BRIGHTNESS || brightnessDelta > MAX_BRIGHTNESS) {
@@ -83,12 +84,14 @@ public class F5ImageBrightness {
             final BufferedImage brightenedImage = adjustBrightness(originalImage, brightnessFactor);
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, "png", brightenedImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), brightenedImage);
                 if (!successfulWriteToS3) {
-                    throw new RuntimeException("Could not write image to S3");
+                    return Constants.getErrorObject("Failed to save image to S3");
                 }
-//                inspector.put(IMAGE_URL_KEY, getDownloadableImageURL(bucketName, outputFileName));
-//                inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                if ((boolean) request.get(GET_DOWNLOAD_KEY)) {
+                    inspector.put(IMAGE_URL_KEY, Constants.getDownloadableImageURL(bucketName, outputFileName));
+                    inspector.put(IMAGE_URL_EXPIRES_IN, IMAGE_URL_EXPIRATION_SECONDS);
+                }
             } else {
                 inspector.put(IMAGE_FILE_KEY, brightenedImage);
             }
@@ -116,11 +119,12 @@ public class F5ImageBrightness {
      * @return The modified image with adjusted brightness.
      */
     private static BufferedImage adjustBrightness(final BufferedImage image, final float brightnessFactor) {
-        final RescaleOp rescaleOp = new RescaleOp(brightnessFactor, 0, null);
-        final BufferedImage result = new BufferedImage(image.getWidth(), image.getHeight(), image.getType());
+        final BufferedImage result = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D g = result.createGraphics();
         g.drawImage(image, 0, 0, null);
         g.dispose();
+
+        final RescaleOp rescaleOp = new RescaleOp(brightnessFactor, 0, null);
         rescaleOp.filter(result, result);
         return result;
     }
