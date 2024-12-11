@@ -31,3 +31,6 @@ IMAGE_FILE_KEY: str = 'image_file'
 
 # Default URL expiration time, in seconds
 IMAGE_URL_EXPIRATION_SECONDS = 3600
+
+
+ALLOWED_FILE_EXTENSIONS: tuple[str] = ["png", "jpg", "jpeg"]

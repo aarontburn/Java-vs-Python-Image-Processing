@@ -21,9 +21,13 @@ def validate_event(event: AWSRequestObject, *keys: str) -> None | str:
         if key not in event:
             out += key + ", "
 
-    if len(out) == 0:
-        return None
-    return "Missing request parameters: " + out[:-2]
+    if len(out) != 0:  # No errors
+        return "Missing request parameters: " + out[:-2]
+
+    if not validate_file_extension(event[constants.FILE_NAME_KEY]):
+        return f"Unsupported file format '{get_file_extension(event[constants.FILE_NAME_KEY])}'.Only JPEG, JPG, and PNG are allowed"
+
+    return None
 
 
 def estimate_cost(run_time: float) -> float:
@@ -47,7 +51,8 @@ def get_image_from_s3_and_record_time(bucket_name: str,
         file_stream: BytesIO = obj.get()["Body"]
         image: ImageType = Image.open(file_stream)
 
-        output_dict[constants.NETWORK_LATENCY_KEY] = int(round(time() * 1000)) - s3_start_time
+        output_dict[constants.NETWORK_LATENCY_KEY] = int(
+            round(time() * 1000)) - s3_start_time
         return image
 
     except Exception:
@@ -70,7 +75,7 @@ def save_image_to_s3(bucket_name: str,
     print(f"\t region_name: {region_name}")
     if (file_format.lower() == "jpg"):
         file_format = "jpeg"
-    
+
     try:
         s3 = boto3.resource('s3', region_name)
         obj = s3.Bucket(bucket_name).Object(file_name)
@@ -99,14 +104,19 @@ def get_downloadable_image_url(bucket_name: str, file_name: str) -> str:
     return ''
 
 
-def add_image_url_to_dict(output_dict: AWSFunctionOutput, bucket_name: str, file_name: str):
-    output_dict[constants.IMAGE_URL_KEY] = get_downloadable_image_url(bucket_name, file_name)
+def add_image_url_to_dict(output_dict: AWSFunctionOutput, bucket_name: str, file_name: str) -> None:
+    output_dict[constants.IMAGE_URL_KEY] = get_downloadable_image_url(
+        bucket_name, file_name)
     output_dict[constants.IMAGE_URL_EXPIRES_IN_KEY] = constants.IMAGE_URL_EXPIRATION_SECONDS
 
 
-def get_file_extension(file_name: str):
+def get_file_extension(file_name: str) -> str:
     return file_name.split(".")[1].lower()
 
 
-def get_file_name(file_name: str):
+def get_file_name(file_name: str) -> str:
     return file_name.split('.')[0]
+
+
+def validate_file_extension(file_name: str) -> bool:
+    return get_file_extension(file_name) in constants.ALLOWED_FILE_EXTENSIONS

@@ -1,12 +1,9 @@
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
-from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, IMAGE_URL_EXPIRES_IN_KEY, \
-    IMAGE_URL_EXPIRATION_SECONDS, SUCCESS_KEY
-from utils_helpers import add_image_url_to_dict, get_file_extension, get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, SUCCESS_KEY, ALLOWED_FILE_EXTENSIONS
+from utils_helpers import add_image_url_to_dict, get_file_extension, get_image_from_s3_and_record_time, validate_event, save_image_to_s3
 from io import BytesIO
-from typing import Any
 from PIL import Image
 
-SUPPORTED_FORMATS: set[str] = {"JPEG", "PNG", "BMP", "GIF", "TIFF"}
 
 
 def handle_request(event: AWSRequestObject,
@@ -19,6 +16,8 @@ def handle_request(event: AWSRequestObject,
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
     if validate_message:
         return {ERROR_KEY: validate_message}
+    
+    
 
     try:
         bucket_name: str = str(event[BUCKET_KEY])
@@ -30,9 +29,9 @@ def handle_request(event: AWSRequestObject,
         output_file_name: str = "transformed_" + \
             file_name.split(".")[0] + "." + target_format.lower()
 
-        if target_format not in SUPPORTED_FORMATS:
+        if target_format not in ALLOWED_FILE_EXTENSIONS:
             return {
-                ERROR_KEY: f"Unsupported output format: {target_format}. Supported formats: {', '.join(SUPPORTED_FORMATS)}"}
+                ERROR_KEY: f"Unsupported output format: {target_format}. Supported formats: {', '.join(ALLOWED_FILE_EXTENSIONS)}"}
 
         image: ImageType = batch_image \
             if is_batch \
