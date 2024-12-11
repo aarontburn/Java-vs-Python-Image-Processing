@@ -43,12 +43,19 @@ public class F4ImageGrayscale {
 
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
+
+            // Check if file format is supported
+            if (!fileName.endsWith(".jpeg") && !fileName.endsWith(".jpg") && !fileName.endsWith(".png")) {
+                return Constants.getErrorObject("Unsupported file format. Only JPEG and PNG are allowed.");
+            }
+
             final String outputFileName = "grayscaled_" + fileName;
 
             final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (originalImage == null) {
                 return Constants.getErrorObject("Could not access image from S3.");
             }
+
             // Convert image to grayscale
             BufferedImage grayscaleImage = new BufferedImage(
                     originalImage.getWidth(),
