@@ -46,7 +46,13 @@ public class F2ImageRotation {
             final String fileName = request.get(Constants.FILE_NAME_KEY).toString();
             final Integer rotationAngle = (Integer) request.get("rotation_angle");
             final String outputFileName = "rotated_" + fileName;
-    
+
+            // Validate file format
+            String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+            if (!(fileExtension.equals("jpeg") || fileExtension.equals("jpg") || fileExtension.equals("png"))) {
+                return Constants.getErrorObject("Unsupported file format. Only JPEG and PNG are allowed.");
+            }
+
             // Validate rotation angle
             if (!(rotationAngle == 90 || rotationAngle == 180 || rotationAngle == 270)) {
                 return Constants.getErrorObject("Invalid rotation_angle. Only 90, 180, or 270 degrees are supported.");

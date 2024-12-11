@@ -46,6 +46,11 @@ public class F1ImageDetails {
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
 
+            // Validate file extension
+            if (!fileName.toLowerCase().endsWith(".jpeg") && !fileName.toLowerCase().endsWith(".jpg") && !fileName.toLowerCase().endsWith(".png")) {
+                return Constants.getErrorObject("Unsupported file format. Only JPEG and PNG are allowed.");
+            }
+
             final BufferedImage imageObject = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
             if (imageObject == null) {
                 return Constants.getErrorObject("Could not access image from S3.");

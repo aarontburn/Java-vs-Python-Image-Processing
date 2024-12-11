@@ -49,8 +49,22 @@ public class F6ImageTransform {
             // Extract input parameters
             final String bucketName = (String) request.get(BUCKET_KEY);
             final String fileName = (String) request.get(FILE_NAME_KEY);
+            final String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+
+            if (!fileExtension.equals("jpeg") && !fileExtension.equals("jpg") && !fileExtension.equals("png")) {
+                return Constants.getErrorObject("Only JPEG and PNG formats are supported.");
+            }
+
             final String targetFormat = ((String) request.getOrDefault("target_format", "JPEG")).toUpperCase();
-            final String outputFileName = "transformed_" + (fileName.split("\\.")[0]) + "." + targetFormat.toLowerCase();
+            if (!targetFormat.equals("JPEG") && !targetFormat.equals("PNG")) {
+                return Constants.getErrorObject("Target format must be JPEG or PNG.");
+            }
+
+            if (fileExtension.equals(targetFormat.toLowerCase())) {
+                return Constants.getErrorObject("Source and target formats are the same. No transformation needed.");
+            }
+
+            final String outputFileName = "transformed_" + fileName.substring(0, fileName.lastIndexOf('.')) + "." + targetFormat.toLowerCase();
 
             // Read the original image
             final BufferedImage originalImage = isBatch ? image : Constants.getImageFromS3AndRecordLatency(bucketName, fileName, inspector);
