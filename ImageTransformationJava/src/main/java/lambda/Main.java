@@ -5,6 +5,7 @@ import functions.*;
 import saaf.Inspector;
 import utils.Constants;
 import utils.Constants.ImageProcessFunction;
+import utils.FileValidator;
 
 import java.util.HashMap;
 
@@ -16,6 +17,13 @@ public class Main {
     private HashMap<String, Object> handleCall(final HashMap<String, Object> request,
                                                final Context context,
                                                final ImageProcessFunction function) {
+
+
+        // Validate file type
+        final String fileName = (String) request.get(Constants.FILE_NAME_KEY);
+        if (!FileValidator.isValidFileType(fileName)) {
+            return Constants.getErrorObject("Unsupported file format. Only JPEG, JPG and PNG are allowed.");
+        }
 
         // To return only metrics, add "return_only_metrics": true to request body
         final boolean returnOnlyMetrics = (boolean) request.getOrDefault(Constants.ONLY_METRICS_KEY, false);

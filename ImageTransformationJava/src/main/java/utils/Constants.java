@@ -49,31 +49,35 @@ public class Constants {
     public static final String[] ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg"};
 
     public static boolean saveImageToS3(
-            final String bucketName,
-            final String fileName,
-            final String imageExtension, // Maybe we can default this to PNG?
-            final BufferedImage image) {
+        final String bucketName,
+        final String fileName,
+        final String imageExtension, // Maybe we can default this to PNG?
+        final BufferedImage image) {
 
-        try {
-            final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            ImageIO.write(image, imageExtension, outputStream);
-            final byte[] imageBytes = outputStream.toByteArray();
-
-            // Save the rotated image back to S3
-            final ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentLength(imageBytes.length);
-            metadata.setContentType("image/" + imageExtension);
-            AmazonS3ClientBuilder
-                    .defaultClient()
-                    .putObject(bucketName, fileName, new ByteArrayInputStream(imageBytes), metadata);
-
-        } catch (final Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-        return true;
-
+    // Use FileValidator to validate the output file type
+    if (!FileValidator.isValidOutputFile(fileName)) {
+        return false; // Abort if the output file type is invalid
     }
+
+    try {
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ImageIO.write(image, imageExtension, outputStream);
+        final byte[] imageBytes = outputStream.toByteArray();
+
+        // Save the image back to S3
+        final ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(imageBytes.length);
+        metadata.setContentType("image/" + imageExtension);
+        AmazonS3ClientBuilder
+                .defaultClient()
+                .putObject(bucketName, fileName, new ByteArrayInputStream(imageBytes), metadata);
+
+    } catch (final Exception e) {
+        e.printStackTrace();
+        return false;
+    }
+    return true;
+}
 
     public static String validateRequestMap(final Map<String, Object> request, final String... keys) {
         final StringBuilder sb = new StringBuilder();
