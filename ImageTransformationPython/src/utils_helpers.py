@@ -111,7 +111,7 @@ def add_image_url_to_dict(output_dict: AWSFunctionOutput, bucket_name: str, file
 
 
 def get_file_extension(file_name: str) -> str:
-    return file_name.split(".")[1].lower()
+    return str(file_name).split(".")[1].lower()
 
 
 def get_file_name(file_name: str) -> str:

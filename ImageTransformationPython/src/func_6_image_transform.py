@@ -29,7 +29,7 @@ def handle_request(event: AWSRequestObject,
         output_file_name: str = "transformed_" + \
             file_name.split(".")[0] + "." + target_format.lower()
 
-        if target_format not in ALLOWED_FILE_EXTENSIONS:
+        if target_format.lower() not in ALLOWED_FILE_EXTENSIONS:
             return {
                 ERROR_KEY: f"Unsupported output format: {target_format}. Supported formats: {', '.join(ALLOWED_FILE_EXTENSIONS)}"}
 

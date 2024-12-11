@@ -1,0 +1,6 @@
+estimated_cost_usd,start_time,function_runtime_ms,processing_throughput,memory_used_mb,end_time,language,network_latency_ms,cold_start
+0,1733948496370,0,0,155,1733948496370,Python,-1,0
+0,1733948496613,0,0,155,1733948496613,Python,-1,0
+8.53504e-9,1733948496774,1,1000,155,1733948496775,Python,-1,0
+0,1733948496872,0,0,155,1733948496872,Python,-1,0
+0,1733948496961,0,0,156,1733948496961,Python,-1,0

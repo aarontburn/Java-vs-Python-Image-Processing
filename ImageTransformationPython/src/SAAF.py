@@ -537,7 +537,8 @@ class Inspector:
             constants.END_TIME_KEY,
             constants.LANGUAGE_KEY,
             constants.NETWORK_LATENCY_KEY,
-            constants.COLD_START_KEY
+            constants.COLD_START_KEY,
+            "function_output"
         ]
 
         # Filter and return only the required keys from __attributes
