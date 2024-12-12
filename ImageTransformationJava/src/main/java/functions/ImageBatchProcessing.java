@@ -2,7 +2,7 @@ package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import utils.Constants;
-import utils.Constants.ImageBatchFunction;
+import utils.FileValidator;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -10,13 +10,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static utils.Constants.*;
+import static utils.Constants.BUCKET_KEY;
+import static utils.Constants.ERROR_KEY;
+import static utils.Constants.FILE_NAME_KEY;
+import static utils.Constants.GET_DOWNLOAD_KEY;
+import static utils.Constants.IMAGE_FILE_KEY;
+import static utils.Constants.IMAGE_URL_EXPIRATION_SECONDS;
+import static utils.Constants.IMAGE_URL_EXPIRES_IN;
+import static utils.Constants.IMAGE_URL_KEY;
+import static utils.Constants.ImageBatchFunction;
+import static utils.Constants.SUCCESS_KEY;
 
-
+/***
+ *  TCSS 462 Image Transformation
+ *  Group 7
+ *
+ *  Conducts multiple image transformations on a single image.
+ */
 public class ImageBatchProcessing {
 
+    /**
+     * Key of the operation list in the request body.
+     */
     private static final String OPERATIONS_KEY = "operations";
 
+    /**
+     * Holds the functions in a map.
+     */
     private static final Map<String, ImageBatchFunction> FUNCTIONS = new HashMap<>();
 
     static {
@@ -28,6 +48,13 @@ public class ImageBatchProcessing {
         FUNCTIONS.put("transform", F6ImageTransform::imageTransform);
     }
 
+    /**
+     * Batch function: Execute multiple transformations on a single image.
+     *
+     * @param request The image arguments.
+     * @param context The AWS Lambda context.
+     * @return A response object.
+     */
     public static HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         final HashMap<String, Object> inspector = new HashMap<>();
 
@@ -85,7 +112,7 @@ public class ImageBatchProcessing {
             }
 
             // Save the final processed image to S3
-            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), image);
+            final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, FileValidator.getFileExtension(outputFileName), image);
             if (!successfulWriteToS3) {
                 return Constants.getErrorObject("Failed to save image to S3");
             }
@@ -108,6 +135,14 @@ public class ImageBatchProcessing {
         return inspector;
     }
 
+    /**
+     * Accesses a list safely without throwing errors.
+     *
+     * @param arrayList The list to access.
+     * @param index     The index to access.
+     * @param fallback  The fallback value if an exception occurs.
+     * @return Either the contents of the ArrayList if the index exists, or the fallback otherwise.
+     */
     private static Object safeListAccess(final ArrayList<Object> arrayList, final int index, final Object fallback) {
         try {
             return arrayList.get(index);

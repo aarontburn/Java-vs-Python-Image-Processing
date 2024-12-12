@@ -1,3 +1,12 @@
+/**
+ *  TCSS 462 Image Transformation
+ *  Group 7
+ * 
+ *  Automatically test functions and dumps the files to CSV files.
+ * 
+ *  @author Aaron Burnham
+ */
+
 const fs = require("fs");
 
 const PYTHON_BATCH_FUNCTION_URL = "https://der5m94jo5.execute-api.us-east-1.amazonaws.com/image_transform/python/batch";
@@ -19,7 +28,6 @@ const JAVA_FUNCTION_6_IMAGE_TRANSFORM_URL = "https://der5m94jo5.execute-api.us-e
 
 // Change this for the number of times we are running each test
 const NUMBER_OF_TESTS = 10
-// const IMAGE_NAMES = ["small"]
 const IMAGE_NAMES = ["small", "medium", "large"]
 
 

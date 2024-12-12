@@ -1,8 +1,13 @@
+"""
+TCSS 462 Image Transformation
+Group 7
+
+Conducts multiple image transformations on a single image.
+"""
+
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, AWSFunction
-from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, IMAGE_URL_EXPIRATION_SECONDS, \
-    IMAGE_URL_KEY, SUCCESS_KEY
-from utils_helpers import add_image_url_to_dict, get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_downloadable_image_url
-from typing import Any
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, SUCCESS_KEY
+from utils_helpers import add_image_url_to_dict, get_image_from_s3_and_record_time, validate_event, save_image_to_s3
 from func_1_image_details import handle_request as f1
 from func_2_image_rotate import handle_request as f2
 from func_3_image_resize import handle_request as f3
@@ -36,7 +41,7 @@ def handle_request(event: AWSRequestObject,
         operations: list[list[str, dict]] = event[OPERATIONS_KEY]
         output_file_name: str = "batch_" + file_name
         output_format: str = "png"
-        operation_outputs: list[dict[str, Any]] = []
+        operation_outputs: list[AWSFunctionOutput] = []
 
         image: ImageType | None = get_image_from_s3_and_record_time(
             bucket_name, file_name, output_dict)
@@ -76,7 +81,7 @@ def handle_request(event: AWSRequestObject,
                 if IMAGE_FILE_KEY in response_object \
                 else image
 
-            appended_output: dict[str, Any] = response_object.copy()
+            appended_output: AWSFunctionOutput = response_object.copy()
             appended_output.pop(IMAGE_FILE_KEY, None)
             operation_outputs.append(appended_output)
 
@@ -104,7 +109,7 @@ def handle_request(event: AWSRequestObject,
     return output_dict
 
 
-def safe_list_access(list_to_access: list, index: int, fallback=None) -> Any:
+def safe_list_access(list_to_access: list, index: int, fallback=None):
     try:
         return list_to_access[index]
     except Exception:

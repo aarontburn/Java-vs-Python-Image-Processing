@@ -1,12 +1,13 @@
-from utils_custom_types \
-    import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
+"""
+TCSS 462 Image Transformation
+Group 7
 
-from utils_constants \
-    import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, SUCCESS_KEY, GET_DOWNLOAD_KEY
+Retrieves image details.
+"""
 
-
-from utils_helpers \
-    import get_image_from_s3_and_record_time, validate_event, add_image_url_to_dict
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, SUCCESS_KEY, GET_DOWNLOAD_KEY
+from utils_helpers import get_image_from_s3_and_record_time, validate_event, add_image_url_to_dict
 
 
 def handle_request(event: AWSRequestObject,

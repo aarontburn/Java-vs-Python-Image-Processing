@@ -1,3 +1,10 @@
+"""
+TCSS 462 Image Transformation
+Group 7
+
+Transforms an image from one file type to another.
+"""
+
 from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
 from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, SUCCESS_KEY, ALLOWED_FILE_EXTENSIONS
 from utils_helpers import add_image_url_to_dict, get_file_extension, get_image_from_s3_and_record_time, validate_event, save_image_to_s3
@@ -5,10 +12,10 @@ from io import BytesIO
 from PIL import Image
 
 
-
 def handle_request(event: AWSRequestObject,
                    context: AWSContextObject = None,
                    batch_image: OptionalImage = None) -> AWSFunctionOutput:
+
     output_dict: AWSFunctionOutput = {}
 
     is_batch: bool = batch_image is not None
@@ -16,16 +23,14 @@ def handle_request(event: AWSRequestObject,
     validate_message: str = validate_event(event, BUCKET_KEY, FILE_NAME_KEY)
     if validate_message:
         return {ERROR_KEY: validate_message}
-    
-    
 
     try:
         bucket_name: str = str(event[BUCKET_KEY])
         file_name: str = str(event[FILE_NAME_KEY])
-        
+
         target_format: str = str(
             event.get('target_format', 'JPEG')).upper()  # Default to JPEG
-        
+
         output_file_name: str = "transformed_" + \
             file_name.split(".")[0] + "." + target_format.lower()
 
@@ -60,10 +65,10 @@ def handle_request(event: AWSRequestObject,
 
             if not successful_write_to_s3:
                 return {ERROR_KEY: "Could not write image to S3."}
-            
+
             if event[GET_DOWNLOAD_KEY]:
-                add_image_url_to_dict(output_dict, 
-                                      bucket_name, 
+                add_image_url_to_dict(output_dict,
+                                      bucket_name,
                                       output_file_name)
         else:
             output_dict[IMAGE_FILE_KEY] = transformed_image

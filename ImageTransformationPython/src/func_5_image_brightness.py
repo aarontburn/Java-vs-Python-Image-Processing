@@ -1,9 +1,13 @@
-from utils_custom_types \
-    import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
-from utils_constants \
-    import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, SUCCESS_KEY
-from utils_helpers \
-    import add_image_url_to_dict, get_file_extension, get_image_from_s3_and_record_time, validate_event, save_image_to_s3
+"""
+TCSS 462 Image Transformation
+Group 7
+
+Modifies the brightness of an image.
+"""
+
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, SUCCESS_KEY
+from utils_helpers import add_image_url_to_dict, get_file_extension, get_image_from_s3_and_record_time, validate_event, save_image_to_s3
 from PIL import ImageEnhance
 
 BRIGHTNESS_KEY: str = 'brightness_delta'
@@ -72,8 +76,6 @@ def handle_request(event: AWSRequestObject,
 
         output_dict[SUCCESS_KEY] = "Successfully changed image brightness."
         output_dict[BRIGHTNESS_KEY] = brightness_delta
-        # ?
-        output_dict["brightness_factor"] = "Figure out implementation or remove from java"
 
         return output_dict
     except Exception as e:

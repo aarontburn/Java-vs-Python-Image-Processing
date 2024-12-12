@@ -1,32 +1,43 @@
 package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import saaf.Inspector;
 import utils.Constants;
+import utils.FileValidator;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.awt.image.IndexColorModel;
 import java.awt.image.RescaleOp;
 import java.util.HashMap;
 
-import static utils.Constants.*;
+import static utils.Constants.BUCKET_KEY;
+import static utils.Constants.FILE_NAME_KEY;
+import static utils.Constants.GET_DOWNLOAD_KEY;
+import static utils.Constants.IMAGE_FILE_KEY;
+import static utils.Constants.IMAGE_URL_EXPIRATION_SECONDS;
+import static utils.Constants.IMAGE_URL_EXPIRES_IN;
+import static utils.Constants.IMAGE_URL_KEY;
+import static utils.Constants.SUCCESS_KEY;
 
+/**
+ *  TCSS 462 Image Transformation
+ *  Group 7
+ *
+ *  Modifies the brightness of an image.
+ */
 public class F5ImageBrightness {
 
-    /***
+    /**
      *  The minimum brightness value.
      */
     private static final int MIN_BRIGHTNESS = 1;
 
-    /***
+    /**
      *  The maximum brightness value.
      */
     private static final int MAX_BRIGHTNESS = 100;
 
 
-    /***
+    /**
      *  Function 5: Image Brightness
      *
      *  @param request  The image arguments.
@@ -37,7 +48,7 @@ public class F5ImageBrightness {
         return imageBrightness(null, request, context);
     }
 
-    /***
+    /**
      *  Function #5: Brightness Batch Method.
      *      This function should only be called by the batch handler, which passes in a buffered image to use.
      *
@@ -63,9 +74,6 @@ public class F5ImageBrightness {
             final Integer brightnessDelta = (Integer) request.get("brightness_delta");
             final String outputFileName = "brightness_" + fileName;
 
-//            if (fileName.split("\\.")[1].equalsIgnoreCase("png")) {
-//                return Constants.getErrorObject("Cannot modify brightness of a png file.");
-//            }
 
             // Validate brightness_delta
             if (brightnessDelta < MIN_BRIGHTNESS || brightnessDelta > MAX_BRIGHTNESS) {
@@ -84,7 +92,7 @@ public class F5ImageBrightness {
             final BufferedImage brightenedImage = adjustBrightness(originalImage, brightnessFactor);
 
             if (!isBatch) {
-                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), brightenedImage);
+                final boolean successfulWriteToS3 = Constants.saveImageToS3(bucketName, outputFileName, FileValidator.getFileExtension(outputFileName), brightenedImage);
                 if (!successfulWriteToS3) {
                     return Constants.getErrorObject("Failed to save image to S3");
                 }
@@ -99,7 +107,6 @@ public class F5ImageBrightness {
             // Populate response attributes
             inspector.put(SUCCESS_KEY, "Successfully changed image brightness.");
             inspector.put("brightness_delta", brightnessDelta);
-            inspector.put("brightness_factor", brightnessFactor);
 
         } catch (Exception e) {
             e.printStackTrace();

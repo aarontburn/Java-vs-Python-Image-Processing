@@ -1,9 +1,11 @@
 """
+TCSS 462 Image Transformation
+Group 7
+
 Main entry point.
 """
 
-from utils_custom_types \
-    import AWSContextObject, AWSFunctionOutput, AWSRequestObject, AWSFunction
+from utils_custom_types import AWSContextObject, AWSFunctionOutput, AWSRequestObject, AWSFunction
 import utils_constants as constants
 from func_1_image_details import handle_request as f1
 from func_2_image_rotate import handle_request as f2
@@ -17,36 +19,61 @@ from time import time
 
 
 def image_details(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for function 1.
+    """
     return __handle_call(event, context, f1)
 
 
 def image_rotate(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for function 2.
+    """
     return __handle_call(event, context, f2)
 
 
 def image_resize(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for function 3.
+    """
     return __handle_call(event, context, f3)
 
 
 def image_grayscale(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for function 4.
+    """
     return __handle_call(event, context, f4)
 
 
 def image_brightness(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for function 5.
+    """
     return __handle_call(event, context, f5)
 
 
 def image_transform(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for function 6.
+    """
     return __handle_call(event, context, f6)
 
 
 def image_batch(event: AWSRequestObject, context: AWSContextObject) -> AWSFunctionOutput:
+    """
+    AWS Lambda entry point for the batch function.
+    """
     return __handle_call(event, context, batch)
 
 
 def __handle_call(event: AWSRequestObject,
                   context: AWSContextObject,
                   function: AWSFunction) -> AWSFunctionOutput:
+    """
+    Handles the request for all functions. Returns the function output
+    and the metrics of the function.
+    """
 
     # To return only metrics, add "return_only_metrics": true to request body. Defaults to false.
     return_only_metrics: bool = \
@@ -63,7 +90,6 @@ def __handle_call(event: AWSRequestObject,
 
     # Use an Inspector for metrics collection
     inspector: Inspector = Inspector(return_only_metrics)
-
 
     # Record function start time
     round_trip_start: int = int(round(time() * 1000))

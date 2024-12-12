@@ -2,34 +2,46 @@ package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import utils.Constants;
+import utils.FileValidator;
 
-import java.awt.*;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 
-import static utils.Constants.*;
+import static utils.Constants.GET_DOWNLOAD_KEY;
+import static utils.Constants.IMAGE_URL_EXPIRATION_SECONDS;
+import static utils.Constants.IMAGE_URL_EXPIRES_IN;
+import static utils.Constants.IMAGE_URL_KEY;
+import static utils.Constants.SUCCESS_KEY;
 
+/**
+ * TCSS 462 Image Transformation
+ * Group 7
+ * <p>
+ * Rotates an image 90, 180, or 270 degrees.
+ */
 public class F2ImageRotation {
 
-    /***
-     *  Function 2: Image Rotation
+    /**
+     * Function 2: Image Rotation
      *
-     *  @param request  The image arguments.
-     *  @param context  The AWS Lambda context.
-     *  @return A response object.
+     * @param request The image arguments.
+     * @param context The AWS Lambda context.
+     * @return A response object.
      */
     public static HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         return imageRotate(null, request, context);
     }
 
-    /***
-     *  Function #2: Rotation Batch Method.
-     *      This function should only be called by the batch handler, which passes in a buffered image to use.
+    /**
+     * Function #2: Rotation Batch Method.
+     * This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param image    The image to rotate.
-     *  @param request  The request arguments.
-     *  @param context  The AWS Lambda Context
-     *  @return A response object.
+     * @param image   The image to rotate.
+     * @param request The request arguments.
+     * @param context The AWS Lambda Context
+     * @return A response object.
      */
     public static HashMap<String, Object> imageRotate(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
@@ -68,7 +80,7 @@ public class F2ImageRotation {
 
             // Upload rotated image to S3
             if (!isBatch) {
-                final boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, Constants.getFileExtension(outputFileName), rotatedImage);
+                final boolean uploadSuccess = Constants.saveImageToS3(bucketName, outputFileName, FileValidator.getFileExtension(outputFileName), rotatedImage);
                 if (!uploadSuccess) {
                     return Constants.getErrorObject("Failed to save image to S3");
                 }

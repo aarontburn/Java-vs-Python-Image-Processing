@@ -1,39 +1,51 @@
 package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import saaf.Inspector;
 import utils.Constants;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
 
-import static utils.Constants.*;
+import static utils.Constants.BUCKET_KEY;
+import static utils.Constants.FILE_NAME_KEY;
+import static utils.Constants.GET_DOWNLOAD_KEY;
+import static utils.Constants.IMAGE_FILE_KEY;
+import static utils.Constants.IMAGE_URL_EXPIRATION_SECONDS;
+import static utils.Constants.IMAGE_URL_EXPIRES_IN;
+import static utils.Constants.IMAGE_URL_KEY;
+import static utils.Constants.SUCCESS_KEY;
 
+/**
+ * TCSS 462 Image Transformation
+ * Group 7
+ * <p>
+ * Transforms an image from one file type to another.
+ */
 public class F6ImageTransform {
 
-    /***
-     *  Function 6: Image Transform
+    /**
+     * Function 6: Image Transform
      *
-     *  @param request  The image arguments.
-     *  @param context  The AWS Lambda context.
-     *  @return A response object.
+     * @param request The image arguments.
+     * @param context The AWS Lambda context.
+     * @return A response object.
      */
     public static HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         return imageTransform(null, request, context);
     }
 
-    /***
-     *  Function #6: Transform Batch Method.
-     *      This function should only be called by the batch handler, which passes in a buffered image to use.
+    /**
+     * Function #6: Transform Batch Method.
+     * This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param image    The image to modify.
-     *  @param request  The request arguments.
-     *  @param context  The AWS Lambda Context
-     *  @return A response object.
+     * @param image   The image to modify.
+     * @param request The request arguments.
+     * @param context The AWS Lambda Context
+     * @return A response object.
      */
     public static HashMap<String, Object> imageTransform(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final HashMap<String, Object> inspector = new HashMap<>();
@@ -61,11 +73,6 @@ public class F6ImageTransform {
                 return Constants.getErrorObject("Target format must be JPEG or PNG.");
             }
 
-
-            // Function should still work so other things dont break.
-//            if (fileExtension.equals(targetFormat.toLowerCase())) {
-//                return Constants.getErrorObject("Source and target formats are the same. No transformation needed.");
-//            }
 
             final String outputFileName = "transformed_" + fileName.substring(0, fileName.lastIndexOf('.')) + "." + targetFormat.toLowerCase();
 
@@ -113,17 +120,21 @@ public class F6ImageTransform {
     }
 
 
-
-    private static BufferedImage removeAlphaChannel(final BufferedImage img) {
-        if (!img.getColorModel().hasAlpha()) {
-            return img;
+    /**
+     * Removes any transparency from an image and replaces it with white.
+     *
+     * @param image The image to modify
+     * @return The image without any transparency.
+     */
+    private static BufferedImage removeAlphaChannel(final BufferedImage image) {
+        if (!image.getColorModel().hasAlpha()) {
+            return image;
         }
 
-        final BufferedImage target = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
+        final BufferedImage target = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
         final Graphics2D g = target.createGraphics();
-        // g.setColor(new Color(color, false));
-        g.fillRect(0, 0, img.getWidth(), img.getHeight());
-        g.drawImage(img, 0, 0, null);
+        g.fillRect(0, 0, image.getWidth(), image.getHeight());
+        g.drawImage(image, 0, 0, null);
         g.dispose();
 
         return target;

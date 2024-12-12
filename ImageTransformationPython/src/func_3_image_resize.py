@@ -1,14 +1,15 @@
-from utils_custom_types \
-    import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, \
-    OptionalImage
+"""
+TCSS 462 Image Transformation
+Group 7
 
-from utils_constants \
-    import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, IMAGE_URL_KEY, \
-    IMAGE_URL_EXPIRES_IN_KEY, IMAGE_URL_EXPIRATION_SECONDS, SUCCESS_KEY
+Resizes an image based on a target width and height.
+"""
 
-from utils_helpers \
-    import add_image_url_to_dict, get_image_from_s3_and_record_time, validate_event, save_image_to_s3, \
-    get_downloadable_image_url, get_file_extension
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
+
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, GET_DOWNLOAD_KEY, IMAGE_FILE_KEY, SUCCESS_KEY
+
+from utils_helpers import add_image_url_to_dict, get_image_from_s3_and_record_time, validate_event, save_image_to_s3, get_file_extension
 
 TARGET_WIDTH_KEY: str = 'target_width'
 TARGET_HEIGHT_KEY: str = 'target_height'

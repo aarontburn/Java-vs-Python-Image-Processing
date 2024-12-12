@@ -1,10 +1,13 @@
 """
+TCSS 462 Image Transformation
+Group 7
+
 This file holds common constants, such as dictionary keys.
 """
 
 # Metrics
-START_TIME_KEY: str = "start_time";
-END_TIME_KEY: str = "end_time";
+START_TIME_KEY: str = "start_time"
+END_TIME_KEY: str = "end_time"
 PROCESSING_THROUGHPUT_KEY: str = "processing_throughput"
 MEMORY_USED_MB_KEY: str = "memory_used_mb"
 ESTIMATED_COST_KEY: str = "estimated_cost_usd"

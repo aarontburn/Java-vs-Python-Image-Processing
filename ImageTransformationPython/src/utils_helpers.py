@@ -1,4 +1,7 @@
 """
+TCSS 462 Image Transformation
+Group 7
+
 This file contains helper methods that are used by multiple functions.
 """
 
@@ -31,6 +34,9 @@ def validate_event(event: AWSRequestObject, *keys: str) -> None | str:
 
 
 def estimate_cost(run_time: float) -> float:
+    """
+    Estimates the cost of the function based on the runtime.
+    """
     memory_size_gb: float = 0.512  # Lambda memory size in GB
     price_per_gb_second: float = 0.00001667  # Pricing for Lambda
     return (run_time / 1000.0) * memory_size_gb * price_per_gb_second
@@ -105,18 +111,30 @@ def get_downloadable_image_url(bucket_name: str, file_name: str) -> str:
 
 
 def add_image_url_to_dict(output_dict: AWSFunctionOutput, bucket_name: str, file_name: str) -> None:
+    """
+    Helper function to add an image URL and expiration time to a dictionary.
+    """
     output_dict[constants.IMAGE_URL_KEY] = get_downloadable_image_url(
         bucket_name, file_name)
     output_dict[constants.IMAGE_URL_EXPIRES_IN_KEY] = constants.IMAGE_URL_EXPIRATION_SECONDS
 
 
 def get_file_extension(file_name: str) -> str:
+    """
+    Returns a file extension from a file. Does not perform any validation.
+    """
     return str(file_name).split(".")[1].lower()
 
 
 def get_file_name(file_name: str) -> str:
+    """
+    Returns the name of a file without the file extension. Does not perform any validation.
+    """
     return file_name.split('.')[0]
 
 
 def validate_file_extension(file_name: str) -> bool:
+    """
+    Check if the specified file's extension is allowed.
+    """
     return get_file_extension(file_name) in constants.ALLOWED_FILE_EXTENSIONS

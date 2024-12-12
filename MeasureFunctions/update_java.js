@@ -1,3 +1,16 @@
+/**
+ *  TCSS 462 Image Transformation
+ *  Group 7
+ * 
+ *  This file automatically updates all AWS Python Lambda Functions.
+ *      To run, cd into the parent directory and run 'npm run python'
+ * 
+ *  This was only tested on a Windows machine.
+ * 
+ *  @author Aaron Burnham
+ */
+
+
 const { execSync } = require('child_process');
 
 // Change this if you wanna see the results of running the CMD commands

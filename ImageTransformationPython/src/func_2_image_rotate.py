@@ -1,12 +1,15 @@
-from utils_custom_types \
-    import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
-from utils_constants \
-    import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, SUCCESS_KEY, GET_DOWNLOAD_KEY
-from utils_helpers \
-    import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, add_image_url_to_dict, get_file_extension
+"""
+TCSS 462 Image Transformation
+Group 7
+
+Rotates an image 90, 180, or 270 degrees.
+"""
+
+from utils_custom_types import AWSFunctionOutput, AWSContextObject, AWSRequestObject, ImageType, OptionalImage
+from utils_constants import BUCKET_KEY, FILE_NAME_KEY, ERROR_KEY, IMAGE_FILE_KEY, SUCCESS_KEY, GET_DOWNLOAD_KEY
+from utils_helpers import get_image_from_s3_and_record_time, validate_event, save_image_to_s3, add_image_url_to_dict, get_file_extension
 
 ROTATION_ANGLE_KEY: str = 'rotation_angle'
-
 
 def handle_request(event: AWSRequestObject,
                    context: AWSContextObject = None,

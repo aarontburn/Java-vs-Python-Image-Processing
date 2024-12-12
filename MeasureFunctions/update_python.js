@@ -1,3 +1,15 @@
+/**
+ *  TCSS 462 Image Transformation
+ *  Group 7
+ * 
+ *  This file automatically updates all AWS Java Lambda Functions.
+ *      To run, cd into the parent directory and run 'npm run java'
+ * 
+ *  This was only tested on a Windows machine.
+ * 
+ *  @author Aaron Burnham
+ */
+
 const fs = require('fs');
 const path = require("path")
 const archiver = require('archiver')("zip");
@@ -28,12 +40,12 @@ const PYTHON_LAMBDA_NAMES = [
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log("Uploading code to AWS");
-    
+
     for (const lambdaName of PYTHON_LAMBDA_NAMES) {
         execSync(command.replace("<name>", lambdaName), DEBUG_OUTPUT ? { stdio: 'inherit' } : undefined);
         console.log("Finished updating " + lambdaName);
     };
-    
+
 })();
 
 

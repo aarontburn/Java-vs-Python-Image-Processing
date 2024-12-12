@@ -5,32 +5,44 @@ import utils.Constants;
 
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
-import java.util.Arrays;
 import java.util.HashMap;
 
-import static utils.Constants.*;
+import static utils.Constants.BUCKET_KEY;
+import static utils.Constants.FILE_NAME_KEY;
+import static utils.Constants.GET_DOWNLOAD_KEY;
+import static utils.Constants.IMAGE_FILE_KEY;
+import static utils.Constants.IMAGE_URL_EXPIRATION_SECONDS;
+import static utils.Constants.IMAGE_URL_EXPIRES_IN;
+import static utils.Constants.IMAGE_URL_KEY;
+import static utils.Constants.SUCCESS_KEY;
 
+/**
+ * TCSS 462 Image Transformation
+ * Group 7
+ * <p>
+ * Retrieves image details.
+ */
 public class F1ImageDetails {
 
-    /***
-     *  Function #1: Image upload and validation
+    /**
+     * Function #1: Image upload and validation
      *
-     *  @param request  The image arguments.
-     *  @param context  The AWS Lambda context.
-     *  @return A response object.
+     * @param request The image arguments.
+     * @param context The AWS Lambda context.
+     * @return A response object.
      */
     public static HashMap<String, Object> handleRequest(final HashMap<String, Object> request, final Context context) {
         return imageDetails(null, request, context);
     }
 
-    /***
-     *  Function #1: Image Details Batch Method.
-     *      This function should only be called by the batch handler, which passes in a buffered image to use.
+    /**
+     * Function #1: Image Details Batch Method.
+     * This function should only be called by the batch handler, which passes in a buffered image to use.
      *
-     *  @param image    The image to get the details of.
-     *  @param request  The request arguments.
-     *  @param context  The AWS Lambda Context.
-     *  @return A response object.
+     * @param image   The image to get the details of.
+     * @param request The request arguments.
+     * @param context The AWS Lambda Context.
+     * @return A response object.
      */
     public static HashMap<String, Object> imageDetails(final BufferedImage image, final HashMap<String, Object> request, final Context context) {
         final boolean isBatch = image != null;
@@ -81,6 +93,12 @@ public class F1ImageDetails {
         return inspector;
     }
 
+    /**
+     * Converts an integer to color type String.
+     *
+     * @param type The color type as an integer.
+     * @return The color type as a String.
+     */
     private static String getColorType(final int type) {
         switch (type) {
             case ColorSpace.TYPE_RGB:

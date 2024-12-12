@@ -2,13 +2,29 @@ package functions;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import utils.Constants;
+import utils.FileValidator;
 
-import java.awt.*;
+import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 
-import static utils.Constants.*;
+import static utils.Constants.BUCKET_KEY;
+import static utils.Constants.FILE_NAME_KEY;
+import static utils.Constants.GET_DOWNLOAD_KEY;
+import static utils.Constants.IMAGE_FILE_KEY;
+import static utils.Constants.IMAGE_URL_EXPIRATION_SECONDS;
+import static utils.Constants.IMAGE_URL_EXPIRES_IN;
+import static utils.Constants.IMAGE_URL_KEY;
+import static utils.Constants.SUCCESS_KEY;
 
+
+/**
+ *  TCSS 462 Image Transformation
+ *  Group 7
+ *
+ *  Resizes an image based on a target width and height.
+ */
 public class F3ImageResize {
 
 
@@ -85,7 +101,7 @@ public class F3ImageResize {
 
             if (!isBatch) {
                 String resizedFileName = "resized_" + fileName;
-                boolean savedSuccessfully = Constants.saveImageToS3(bucketName, resizedFileName, Constants.getFileExtension(resizedFileName), outputImage);
+                boolean savedSuccessfully = Constants.saveImageToS3(bucketName, resizedFileName, FileValidator.getFileExtension(resizedFileName), outputImage);
                 if (!savedSuccessfully) {
                     return Constants.getErrorObject("Failed to save image to S3.");
                 }
