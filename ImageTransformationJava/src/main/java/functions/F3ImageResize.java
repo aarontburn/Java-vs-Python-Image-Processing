@@ -77,9 +77,6 @@ public class F3ImageResize {
             int originalHeight = originalImage.getHeight();
 
 
-            if (targetWidth > originalWidth || targetHeight > originalHeight) {
-                return Constants.getErrorObject("Target dimensions exceed original dimensions.");
-            }
             Image resizedImage = originalImage.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
             BufferedImage outputImage = new BufferedImage(targetWidth, targetHeight, originalImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : originalImage.getType());
             Graphics2D graphics = outputImage.createGraphics();
