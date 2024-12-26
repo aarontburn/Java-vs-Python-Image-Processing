@@ -5,6 +5,11 @@ A case study for Java versus Python for image processing on AWS Lambda.
 #### Keywords:
 AWS, Lambda, S3, REST API
 
+## Reports
+[Project Analysis](https://github.com/aarontburn/Java-vs-Python-Image-Processing/blob/main/Project%20Report.pdf)  
+[Metrics](https://github.com/aarontburn/Java-vs-Python-Image-Processing/blob/main/Project%20Metrics.pdf)
+
+
 ## Functions Tested
 ### Function 1: Image Details
 Retrieve image details (height, width, color mode, and transparency)
