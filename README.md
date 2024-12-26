@@ -21,7 +21,7 @@ Converts an image to grayscale.
 ### Function 5: Image Brightness
 Modifies the brightness of an image.
 
-### Function 6: Image Transform
+### Function 6: Image File Conversion
 Converts an image of one file type to another.
 
 ### Batch Function
